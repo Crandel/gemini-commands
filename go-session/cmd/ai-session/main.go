@@ -3,12 +3,16 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/daniel-talonone/gemini-commands/internal/llm"
 	"github.com/spf13/cobra"
 )
 
-var modelFlag string
+var (
+	modelFlag   string
+	timeoutFlag time.Duration
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "ai-session",
@@ -25,11 +29,12 @@ questions.yml, review.yml, log.md, and pr.md for a single story.`,
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&modelFlag, "model", "gemini", "LLM backend: gemini, gemini-flash, or claude")
+	rootCmd.PersistentFlags().DurationVar(&timeoutFlag, "llm-timeout", 0, "Wall-clock timeout per LLM call (0 = disabled). On timeout the run is retried with context that the previous attempt got stuck.")
 }
 
 // getRunner returns the Runner selected by the --model flag.
 func getRunner() (llm.Runner, error) {
-	return llm.NewRunner(llm.Model(modelFlag))
+	return llm.NewRunner(llm.Model(modelFlag), llm.RunnerOptions{Timeout: timeoutFlag})
 }
 
 func main() {

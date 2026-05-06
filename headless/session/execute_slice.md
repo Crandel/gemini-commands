@@ -74,9 +74,17 @@ You have full tool access.
     ```bash
     {{verification_command_here}}
     ```
-    Read the full output. If verification fails, diagnose, fix, and re-run until it passes. Do not proceed to the next task or mark any task as `done` until verification passes.
+    Read the full output. If verification fails, diagnose, fix, and re-run. **Maximum 3 fix attempts per file write.** After 3 failures, run:
+    ```
+    ai-session append-log "{{feature_dir_here}}" "SLICE FAILED: verification did not pass after 3 attempts on task <task-id>. Last error: <paste error>"
+    ```
+    Then output a one-line failure summary and **stop making tool calls immediately**.
+
+    Do not proceed to the next task or mark any task as `done` until verification passes.
 
 6.  **Idempotency:** Ensure your changes are idempotent. Re-applying them should not break the codebase.
+
+7.  **Exit when done.** Once all tasks are marked `done` and the final verification passes, output a single plain-text completion line (e.g. `Slice complete. All tasks done, verification passed.`) and **make no further tool calls**. Do not re-verify, re-read files, or re-check statuses after this point.
 
 {{#if error_message}}
 <previous_failure_error>
