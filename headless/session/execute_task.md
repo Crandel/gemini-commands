@@ -77,7 +77,13 @@ Read it carefully before touching any file. It is the authoritative source of tr
    ```
    <verification_command>
    ```
-   Read the full output. If it fails, diagnose the error, fix it, and re-run verification. Repeat until it passes — do not exit until the codebase is in a passing state.
+   Read the full output. If it fails, diagnose the error, fix it, and re-run verification. **Maximum 3 fix attempts.** After 3 failures, run:
+   ```
+   ai-session append-log "{{feature_dir_here}}" "TASK FAILED: verification did not pass after 3 attempts. Last error: <paste error>"
+   ```
+   Then output a one-line failure summary and **stop making tool calls immediately**.
+
+   When verification passes, output a single plain-text completion line (e.g. `Task complete. Verification passed.`) and **make no further tool calls**. Do not re-verify or re-check files after this point.
 
 6. **Ensure idempotency** where possible. If the change is re-applied, it should not leave the codebase in a broken state.
 
