@@ -234,6 +234,10 @@
   <form method="POST" action="/feature/{{.ID}}/reset" style="margin-top: 1rem;">
     <button type="submit" class="reset-button" onclick="return confirm('Reset all task statuses to todo?');">Reset</button>
   </form>
+  {{else}}
+  <form method="POST" action="/feature/{{.ID}}/plan" style="margin-top: 1rem;">
+    <button type="submit" class="reset-button">Plan</button>
+  </form>
   {{end}}
   {{if .Plan}}
   <details open>

@@ -106,8 +106,6 @@ func (s *Server) Start() error {
 		pathSuffix := strings.TrimPrefix(r.URL.Path, "/feature/")
 		if strings.HasSuffix(pathSuffix, "/reset") && r.Method == http.MethodPost {
 			s.MakeResetHandler()(w, r)
-		} else if strings.HasSuffix(pathSuffix, "/plan") && r.Method == http.MethodPost {
-			s.MakePlanHandler()(w, r)
 		} else {
 			s.MakeFeatureDetailHandler(tmpl)(w, r)
 		}
@@ -242,69 +240,6 @@ func (s *Server) MakeResetHandler() http.HandlerFunc {
 		http.Redirect(w, r, "/feature/"+id, http.StatusSeeOther)
 	}
 }
-
-func (s *Server) MakePlanHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Only handle POST requests to paths ending with /plan
-		pathSuffix := strings.TrimPrefix(r.URL.Path, "/feature/")
-		if r.Method != http.MethodPost || !strings.HasSuffix(pathSuffix, "/plan") {
-			http.NotFound(w, r)
-			return
-		}
-
-		// Extract feature ID by removing /plan suffix
-		id := strings.TrimSuffix(pathSuffix, "/plan")
-		if id == "" {
-			http.NotFound(w, r)
-			return
-		}
-
-		// Scan all features to find the one with matching ID
-		features, err := s.ScanAllFunc()
-		if err != nil {
-			http.Error(w, "scan error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		var found *dashboard.FeatureState
-		for i := range features {
-			if features[i].StoryID == id {
-				found = &features[i]
-				break
-			}
-		}
-		if found == nil {
-			http.NotFound(w, r)
-			return
-		}
-
-		// Resolve feature directory
-		remoteURL := "https://github.com/" + found.Repo
-		dir, err := feature.ResolveFeatureDir(id, ".", remoteURL)
-		if err != nil {
-			http.Error(w, "resolve error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Load plan to verify it's empty
-		pln, err := plan.LoadPlan(dir)
-		if err == nil && len(pln) > 0 {
-			// Plan exists and has slices — cannot create a new plan
-			http.Error(w, "plan already exists", http.StatusInternalServerError)
-			return
-		}
-
-		// Spawn ai-session start-plan {id} as background process (fire-and-forget)
-		go func() {
-			cmd := exec.Command("ai-session", "start-plan", id)
-			_ = cmd.Run() // Ignore errors; this is a best-effort background operation
-		}()
-
-		// Redirect to feature detail page
-		http.Redirect(w, r, "/feature/"+id, http.StatusSeeOther)
-	}
-}
-
 
 func (s *Server) MakeListHandler(tmpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

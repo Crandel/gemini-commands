@@ -841,3 +841,169 @@ func TestResetButtonRendering_WithoutPlan(t *testing.T) {
 	assert.NotContains(t, body, `/reset"`, "Reset form should not be present when plan is missing")
 	assert.NotContains(t, body, "Reset</button>", "Reset button should not be present when plan is missing")
 }
+
+func TestPlanHandler_SuccessfulPlanGeneration(t *testing.T) {
+	srv := server.New(8080, &mockScanner{})
+
+	featureID := "sc-plan-success"
+	repo := "org/repo"
+	home, _ := os.UserHomeDir()
+	featureDir := filepath.Join(home, ".features", repo, featureID)
+	require.NoError(t, feature.CreateFeature(featureDir, repo, "main", ""))
+	defer func() { _ = os.RemoveAll(featureDir) }()
+
+	// Plan.yml should be empty (created with empty array by feature.CreateFeature)
+	mockS := &mockScanner{features: []dashboard.FeatureState{{StoryID: featureID, Repo: repo}}}
+	srv.ScanAllFunc = mockS.ScanAll
+
+	// Make the POST request
+	req := httptest.NewRequest(http.MethodPost, "/feature/"+featureID+"/plan", nil)
+	rr := httptest.NewRecorder()
+	srv.MakePlanHandler()(rr, req)
+
+	// Verify 303 redirect to /feature/{id}
+	require.Equal(t, http.StatusSeeOther, rr.Code, "should return 303 redirect")
+	assert.Equal(t, "/feature/"+featureID, rr.Header().Get("Location"))
+}
+
+func TestPlanHandler_NonexistentFeature(t *testing.T) {
+	srv := server.New(8080, &mockScanner{features: []dashboard.FeatureState{}})
+
+	req := httptest.NewRequest(http.MethodPost, "/feature/nonexistent/plan", nil)
+	rr := httptest.NewRecorder()
+	srv.MakePlanHandler()(rr, req)
+
+	// Verify 404 response
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestPlanHandler_ExistingPlan(t *testing.T) {
+	srv := server.New(8080, &mockScanner{})
+
+	featureID := "sc-plan-existing"
+	repo := "org/repo"
+	home, _ := os.UserHomeDir()
+	featureDir := filepath.Join(home, ".features", repo, featureID)
+	require.NoError(t, feature.CreateFeature(featureDir, repo, "main", ""))
+	defer func() { _ = os.RemoveAll(featureDir) }()
+
+	// Create a non-empty plan
+	planContent := `- id: slice-1
+  description: Test slice
+  status: todo
+  tasks:
+    - id: task-1
+      task: Test task
+      status: todo`
+	require.NoError(t, os.WriteFile(filepath.Join(featureDir, "plan.yml"), []byte(planContent), 0644))
+
+	mockS := &mockScanner{features: []dashboard.FeatureState{{StoryID: featureID, Repo: repo}}}
+	srv.ScanAllFunc = mockS.ScanAll
+
+	// Make the POST request
+	req := httptest.NewRequest(http.MethodPost, "/feature/"+featureID+"/plan", nil)
+	rr := httptest.NewRecorder()
+	srv.MakePlanHandler()(rr, req)
+
+	// Verify 500 error for non-empty plan
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), "plan already exists")
+}
+
+func TestPlanHandler_MethodNotAllowed(t *testing.T) {
+	srv := server.New(8080, &mockScanner{})
+
+	// GET request should not be handled by plan handler
+	req := httptest.NewRequest(http.MethodGet, "/feature/sc-123/plan", nil)
+	rr := httptest.NewRecorder()
+	srv.MakePlanHandler()(rr, req)
+
+	// Verify 404 for non-POST requests
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestPlanHandler_InvalidPath(t *testing.T) {
+	srv := server.New(8080, &mockScanner{})
+
+	// Request without /plan suffix should not be handled
+	req := httptest.NewRequest(http.MethodPost, "/feature/sc-123", nil)
+	rr := httptest.NewRecorder()
+	srv.MakePlanHandler()(rr, req)
+
+	// Verify 404 for non-plan paths
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestPlanButtonRendering_WithoutPlan(t *testing.T) {
+	srv, tmpl, mockS := setupFeatureDetailHandlerTest(t)
+
+	featureID := "sc-button-without-plan-plan"
+	repo := "org/repo"
+	home, _ := os.UserHomeDir()
+	featureDir := filepath.Join(home, ".features", repo, featureID)
+	require.NoError(t, feature.CreateFeature(featureDir, repo, "main", ""))
+	defer func() { _ = os.RemoveAll(featureDir) }()
+
+	// Remove the plan file to simulate no plan
+	require.NoError(t, os.Remove(filepath.Join(featureDir, "plan.yml")))
+	// Remove review file to isolate
+	require.NoError(t, os.Remove(filepath.Join(featureDir, "review.yml")))
+
+	mockS.features = []dashboard.FeatureState{{StoryID: featureID, Repo: repo}}
+
+	req := httptest.NewRequest(http.MethodGet, "/feature/"+featureID, nil)
+	rr := httptest.NewRecorder()
+	srv.MakeFeatureDetailHandler(tmpl).ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	body := rr.Body.String()
+
+	// Verify Plan button form is present
+	assert.Contains(t, body, `<form method="POST" action="/feature/`+featureID+`/plan"`, "Plan form should be present when plan is missing")
+	assert.Contains(t, body, `<button type="submit"`, "Plan button should be present")
+	assert.Contains(t, body, "Plan</button>", "Plan button label should be present")
+
+	// Verify Reset button form is NOT present
+	assert.NotContains(t, body, `/reset"`, "Reset form should not be present when plan is missing")
+	assert.NotContains(t, body, "Reset</button>", "Reset button should not be present when plan is missing")
+}
+
+func TestPlanButtonRendering_WithPlan(t *testing.T) {
+	srv, tmpl, mockS := setupFeatureDetailHandlerTest(t)
+
+	featureID := "sc-button-with-plan-plan"
+	repo := "org/repo"
+	home, _ := os.UserHomeDir()
+	featureDir := filepath.Join(home, ".features", repo, featureID)
+	require.NoError(t, feature.CreateFeature(featureDir, repo, "main", ""))
+	defer func() { _ = os.RemoveAll(featureDir) }()
+
+	// Create a plan with a slice
+	planContent := `- id: slice-1
+  description: Test slice
+  status: todo
+  tasks:
+    - id: task-1
+      task: Test task
+      status: todo`
+	require.NoError(t, os.WriteFile(filepath.Join(featureDir, "plan.yml"), []byte(planContent), 0644))
+	// Remove review file to isolate
+	require.NoError(t, os.Remove(filepath.Join(featureDir, "review.yml")))
+
+	mockS.features = []dashboard.FeatureState{{StoryID: featureID, Repo: repo}}
+
+	req := httptest.NewRequest(http.MethodGet, "/feature/"+featureID, nil)
+	rr := httptest.NewRecorder()
+	srv.MakeFeatureDetailHandler(tmpl).ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	body := rr.Body.String()
+
+	// Verify Reset button form is present
+	assert.Contains(t, body, `<form method="POST" action="/feature/`+featureID+`/reset"`, "Reset form should be present when plan is non-empty")
+	assert.Contains(t, body, `<button type="submit"`, "Reset button should be present")
+	assert.Contains(t, body, "Reset</button>", "Reset button label should be present")
+
+	// Verify Plan button form is NOT present
+	assert.NotContains(t, body, `/plan"`, "Plan form should not be present when plan is non-empty")
+}
