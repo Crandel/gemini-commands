@@ -18,7 +18,7 @@ overly permissive permissions, insecure image sources, missing resource limits).
 **Review Process:**
 
 1. Read context:
-   - `cat "{{feature_dir_here}}/description.md"`
+   - `ai-session load-context "{{feature_dir_here}}"` — extract the `description.md` block from the XML output
    - `cat AGENTS.md`
 2. Analyze the diff with a DevOps lens across all focus areas above.
 3. Compile all findings as a YAML list. Each finding **must** have:

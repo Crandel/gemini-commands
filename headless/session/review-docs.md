@@ -14,7 +14,7 @@ Your review must be **critical, direct, and focused on clarity, accuracy, and co
 **Review Process:**
 
 1. Read context:
-   - `cat "{{feature_dir_here}}/description.md"`
+   - `ai-session load-context "{{feature_dir_here}}"` — extract the `description.md` block from the XML output
    - `cat AGENTS.md`
 2. Analyze the diff for documentation impact:
    - Missing or outdated README updates

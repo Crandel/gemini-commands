@@ -33,8 +33,9 @@ Reviewers lack full context. A reported bug is a hypothesis, not a fact. Before 
 ### Step 1 — Load context
 
 ```bash
-cat "{{feature_dir}}/description.md"
+ai-session load-context "{{feature_dir}}"
 ```
+Extract the `description.md` block from the XML output.
 
 Find `AGENTS.md` in the work directory (parent of `{{feature_dir}}`'s repo root) and extract the `Run:` command from the `## Verification` section. Store it as `VERIFY_CMD`. You will run it after every fix.
 
@@ -79,13 +80,13 @@ After every finding is processed, update its status using the CLI:
 
 ```bash
 # Resolved — fix was applied
-ai-session review-update "{{feature_dir}}" --json '[{"id":"<id>","status":"resolved"}]'
+ai-session review-update "{{feature_dir}}" --{{review_type_here}} --json '[{"id":"<id>","status":"resolved"}]'
 
 # Skipped — reviewer was incorrect or finding is not actionable
-ai-session review-update "{{feature_dir}}" --json '[{"id":"<id>","status":"skipped"}]'
+ai-session review-update "{{feature_dir}}" --{{review_type_here}} --json '[{"id":"<id>","status":"skipped"}]'
 ```
 
-The `--type` flag selects the file: `regular` → `review.yml`, `docs` → `review-docs.yml`, `devops` → `review-devops.yml`.
+The `--{{review_type_here}}` flag is already correct for this run (`regular` → `review.yml`, `docs` → `review-docs.yml`, `devops` → `review-devops.yml`). Do not change it.
 
 ### Step 6 — Final verification
 

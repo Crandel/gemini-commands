@@ -27,7 +27,7 @@ CHECKSUMS_FILE="$HEADLESS_DIR/.checksums"
 # address-feedback, address-feedback-remote, create-pr-description.
 # Inherently interactive commands (no headless variant): define, start, end, get-familiar, log-research,
 # migration, checkpoint.
-DENY_LIST=("define" "start" "end" "get-familiar" "log-research" "migration" "plan" "checkpoint" "implement" "review" "review-docs" "review-devops" "address-feedback" "address-feedback-remote" "create-pr-description")
+DENY_LIST=("address-local-feedback" "audit" "define" "start" "end" "get-familiar" "log-research" "migration" "plan" "checkpoint" "implement" "review" "review-docs" "review-devops" "address-feedback" "address-feedback-remote" "create-pr-description" "first-test" "fix-cmd" "new-skill" "split-story")
 
 if ! command -v gemini &>/dev/null; then
     echo "Error: 'gemini' CLI not found in PATH. Install Gemini CLI to use this script." >&2

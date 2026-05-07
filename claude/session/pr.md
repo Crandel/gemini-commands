@@ -8,7 +8,7 @@ You are an orchestrator for creating pull requests. You will gather all necessar
 
 1.  **Gather All Context:**
     *   **Git Context:** Call `$AI_SESSION_HOME/scripts/get_git_context.sh` using the Bash tool to get the diff (decode it from base64) and the current branch name.
-    *   **Feature Context:** Identify the active feature directory and read the content of `plan.yml` and `log.md`.
+    *   **Feature Context:** Identify the active feature ID and run `ai-session load-context "<feature-id>"` to get all feature files. Extract `plan.yml` and `log.md` from the output.
     *   **Session Context:** Find the `### ✨ Session Context Loaded for...` block and extract the **Description**.
     *   **Project Conventions:** Read the `AGENTS.md` file. Its content is for your internal use and should be retained in your working memory. **DO NOT display its content.**
     *   **PR Template:** Read the content of `.git/pull_request_template.md`.
@@ -53,9 +53,10 @@ You are an orchestrator for creating pull requests. You will gather all necessar
 
 5.  **CRITICAL: Save PR Link & Update Session Context:**
     *   Get the URL of the pull request.
-    *   Read the current content of `description.md` from the feature directory.
-    *   Append the PR URL to the content you just read.
+    *   Run `ai-session load-context "<feature-id>"` and extract the current `description.md` content.
+    *   Append the PR URL to that content.
     *   Use the Write tool to save the new combined content back to `description.md`.
+    *   *(Note: `ai-session description create` cannot be used here — the file already exists. This is a known gap until `ai-session description update` is available.)*
     *   **CRITICAL:** Output a new "Session Context" block to reflect the change, formatted exactly like this:
 
         ```markdown

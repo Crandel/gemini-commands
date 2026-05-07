@@ -1,34 +1,87 @@
 # Generated from claude/session/new.md — do not edit directly.
 # Run scripts/gen_headless.sh to regenerate.
 
-You are an assistant who bootstraps feature development by delegating context gathering to a specialized sub-agent. The user has provided an identifier: `{{args}}`.
+You are a headless, non-interactive assistant. You will bootstrap a feature by gathering context from an identifier and creating a `description.md` file. The identifier is provided via `{{args}}`. Your entire execution MUST be performed within a single `run_shell_command` call that executes one comprehensive shell script. This script must handle all logic internally, including parsing, fetching content, and formatting the final output.
 
-**Orchestration Actions:**
+**Execution Script:**
 
-1.  **Determine Identifier Type and Feature Name:**
-    *   If `{{args}}` starts with "sc-", it is a Shortcut story ID. The `feature_name` is `{{args}}`.
-    *   If `{{args}}` is a URL containing "notion.so", it is a Notion page. The `feature_name` should be derived from the last part of the URL path (the slug, e.g., from `https://www.notion.so/t1rnd/My-Page-Title-a1b2c3d4` the name would be `My-Page-Title-a1b2c3d4`).
+Construct and execute a single shell script with the following sequential steps:
 
-2.  **Scaffold Directory:**
-    *   Call the `create_feature_dir.sh` helper script using `run_shell_command` to create the directory and all placeholder files.
-    *   Example: `run_shell_command` with `cmd`: `$AI_SESSION_HOME/scripts/create_feature_dir.sh "$(ai-session resolve-feature-dir "YOUR_DERIVED_FEATURE_NAME")"`. Use `$AI_SESSION_HOME` literally in the shell command — do not resolve, expand, or guess its value; the shell will expand it.
+1.  **Initialization:**
+    *   Start with `set -euo pipefail` for robust error handling.
+    *   Capture the input arguments: `ARGS="{{args}}"`.
 
-3.  **Gather Context and Synthesize Description:**
-    *   This step is a placeholder. In a fully integrated environment, this step would fetch content from the source (Shortcut, Notion, etc.) and populate the description.md file. For now, it will create a basic description.
-    *   Construct the placeholder content: At the very top, add a "Source:" line with the original identifier link. Add the title as a main heading.
-    *   Use `run_shell_command` with `printf` to save the synthesized Markdown to the target file: `"$(ai-session resolve-feature-dir "{{feature_name}}")/description.md"`.
-
-4.  **Establish Session Context (Final Step):**
-    *   Read the content of the `description.md` file the sub-agent just created using `run_shell_command` with `cat`.
-    *   Read the content of `AGENTS.md` from the project root (fall back to `GEMINI.md` if not present) using `run_shell_command` with `cat`.
-    *   Format and display using the following Markdown structure EXACTLY:
-
-        ```markdown
-        ### ✨ Session Context Loaded for `{{feature_name}}`
-
-        **Description:**
-        > {{The synthesized description from the new description.md}}
-
-        This context is now available for all subsequent commands.
+2.  **Identifier Parsing:**
+    *   Extract the primary identifier (first token) and any supplementary context (the rest):
+        ```sh
+        IDENTIFIER=$(echo "$ARGS" | cut -d' ' -f1)
+        SUPPLEMENTARY_CONTEXT=$(echo "$ARGS" | cut -d' ' -f2-)
         ```
-    *   After printing this block, the command is complete.
+    *   Determine the `FEATURE_NAME` based on the `IDENTIFIER`'s format:
+        ```sh
+        if [[ "$IDENTIFIER" == sc-* ]]; then
+            FEATURE_NAME="$IDENTIFIER"
+        elif [[ "$IDENTIFIER" == *notion.so* ]]; then
+            SLUG_WITH_UUID=$(basename "$IDENTIFIER")
+            FEATURE_NAME=${SLUG_WITH_UUID%-*}
+        else
+            echo "Error: Unsupported identifier format. Must be a Shortcut story ID (sc-*) or a Notion URL." >&2
+            exit 1
+        fi
+        ```
+
+3.  **Directory Scaffolding:**
+    *   Create the feature directory structure: `ai-session create-feature "$FEATURE_NAME"`.
+
+4.  **Content Fetching and Synthesis (Inline):**
+    *   **Fetch Primary Content:** Based on the identifier, use a hypothetical MCP command-line tool to fetch the main content and store it in a variable.
+        ```sh
+        PRIMARY_CONTENT=""
+        if [[ "$IDENTIFIER" == sc-* ]]; then
+            PRIMARY_CONTENT=$(shortcut-mcp fetch "$IDENTIFIER" "$SUPPLEMENTARY_CONTEXT")
+        elif [[ "$IDENTIFIER" == *notion.so* ]]; then
+            PRIMARY_CONTENT=$(notion-mcp fetch "$IDENTIFIER" "$SUPPLEMENTARY_CONTEXT")
+        fi
+        ```
+    *   **Extract and Fetch Linked Resources:** Scan the primary content for URLs. Loop through them, fetch their content using the appropriate tool, and aggregate the results into a single variable. Limit recursion to one level.
+        ```sh
+        LINKED_RESOURCES_CONTENT="## Linked Resources\n\n"
+        LINKS=$(echo "$PRIMARY_CONTENT" | grep -oE 'https?://[a-zA-Z0-9./?=-_]+' || true)
+
+        for LINK in $LINKS; do
+            LINK_CONTENT=""
+            if [[ "$LINK" == *shortcut.com* ]]; then
+                LINK_CONTENT=$(shortcut-mcp fetch "$LINK")
+            elif [[ "$LINK" == *notion.so* ]]; then
+                LINK_CONTENT=$(notion-mcp fetch "$LINK")
+            elif [[ "$LINK" == *github.com* ]]; then
+                LINK_CONTENT=$(github-mcp fetch "$LINK") # Hypothetical tool
+            else
+                LINK_CONTENT=$(web-fetch "$LINK") # Hypothetical tool
+            fi
+            LINKED_RESOURCES_CONTENT+=$(printf '\n### %s\n\n%s\n' "$LINK" "$LINK_CONTENT")
+        done
+        ```
+    *   **Synthesize and Save Description:** Combine all fetched content into a final Markdown string. Then, pipe this string into the standard input of the `ai-session description create` command. **You must not use a heredoc (`<<EOF`)**.
+        ```sh
+        SYNTHESIZED_CONTENT=$(printf 'Source: %s\n\n%s\n\n%s' "$IDENTIFIER" "$PRIMARY_CONTENT" "$LINKED_RESOURCES_CONTENT")
+        printf '%s' "$SYNTHESIZED_CONTENT" | ai-session description create "$FEATURE_NAME"
+        ```
+
+5.  **Final Context Output:**
+    *   Load all context files for the created feature: `CONTEXT_XML=$(ai-session load-context "$FEATURE_NAME")`.
+    *   Extract the `description.md` content from the XML output using a stream editor like `awk` or `sed`.
+        ```sh
+        DESCRIPTION=$(echo "$CONTEXT_XML" | awk '/<file name="description.md">/,/<\/file>/' | sed '1d;$d')
+        ```
+    *   Read the project's `AGENTS.md` file, falling back to `GEMINI.md` if it doesn't exist.
+        ```sh
+        AGENTS_CONTENT=$(cat AGENTS.md 2>/dev/null || cat GEMINI.md 2>/dev/null)
+        ```
+    *   Format and print the final session context to standard output. This is the only output the user will see.
+        ```sh
+        printf '### ✨ Session Context Loaded for `%s`\n\n' "$FEATURE_NAME"
+        printf '**Description:**\n'
+        echo "$DESCRIPTION" | sed 's/^/> /'
+        printf '\nThis context is now available for all subsequent commands.\n'
+        ```

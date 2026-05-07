@@ -15,7 +15,7 @@ Work through every finding below and apply the necessary fixes.
 **Process:**
 
 1. Read context and extract the verification command:
-   - `cat "{{feature_dir}}/description.md"`
+   - `ai-session load-context "{{feature_dir}}"` — extract the `description.md` block from the XML output
    - `cat AGENTS.md` — find the `## Verification` section and extract the `Run:` command. Store it as VERIFY_CMD; you will use it after every fix and at the end.
 2. For each finding:
    a. Read the file referenced in `file:` and understand the issue described in `feedback:`.

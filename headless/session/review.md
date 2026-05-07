@@ -14,7 +14,7 @@ Your review must be **critical, direct, and nitpicky**.
 **Review Process:**
 
 1. Read context:
-   - `cat "{{feature_dir_here}}/description.md"`
+   - `ai-session load-context "{{feature_dir_here}}"` — extract the `description.md` block from the XML output
    - `cat AGENTS.md`
 2. Analyze the diff against the requirements and project conventions. Scrutinize every change for bugs, misalignment with requirements, architectural issues, style violations, and any other nitpicks.
 3. Compile all findings into a YAML list. Each finding **must** have:

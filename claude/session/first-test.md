@@ -69,7 +69,7 @@ FEATURE_DIR="$(ai-session resolve-feature-dir "<feature-id>")"
 echo "$FEATURE_DIR"
 ```
 
-Read `description.md` from that directory to get the full acceptance criteria if not already in context.
+If the acceptance criteria are not already in context, run `ai-session load-context "<feature-id>"` and extract the `description.md` block.
 
 ### 2. Explore the Codebase
 
