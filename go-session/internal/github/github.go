@@ -72,29 +72,36 @@ Comment: %s
 // CreatePR creates a GitHub pull request and returns its URL.
 // It first checks if a PR already exists for the given branch and returns an error if so.
 func CreatePR(workDir, base, head, title, body string) (string, error) {
-	cmdView := execCommand("gh", "pr", "view", head, "--json", "url")
+	return CreatePRImpl(workDir, base, head, title, body)
+}
+
+// createPRImpl is the actual implementation of CreatePR, allowing it to be swapped out for testing.
+var CreatePRImpl = func(workDir, base, head, title, body string) (string, error) {
+	cmdView := execCommand("gh", "pr", "view", head, "--json", "url,state")
 	cmdView.Dir = workDir
 	var outView bytes.Buffer
 	var errView bytes.Buffer
 	cmdView.Stdout = &outView
 	cmdView.Stderr = &errView
-	err := cmdView.Run()
+	viewErr := cmdView.Run()
 
-	if err == nil {
-		// PR exists, parse the URL and return an error
+	if viewErr == nil {
+		// A PR record exists — check its state.
 		var prInfo struct {
-			URL string `json:"url"`
+			URL   string `json:"url"`
+			State string `json:"state"`
 		}
 		if err := json.Unmarshal(outView.Bytes(), &prInfo); err != nil {
 			return "", fmt.Errorf("parsing existing PR info: %w", err)
 		}
-		return "", fmt.Errorf("pr already exists for branch %s", head)
-	}
-
-	// If `gh pr view` returns an error, check if it's because no PR was found.
-	// Otherwise, it's an actual error.
-	if !strings.Contains(errView.String(), "no pull requests found") {
-		return "", fmt.Errorf("failed to check for existing PR: %s: %w", errView.String(), err)
+		if prInfo.State == "OPEN" {
+			// PR is open — return the existing URL, no need to create.
+			return prInfo.URL, nil
+		}
+		// PR is closed or merged — proceed to create a new one.
+	} else if !strings.Contains(errView.String(), "no pull requests found") {
+		// gh pr view failed for a reason other than "no PR found" — surface the error.
+		return "", fmt.Errorf("failed to check for existing PR: %s: %w", errView.String(), viewErr)
 	}
 
 	// PR does not exist, create it.
@@ -124,9 +131,7 @@ func CreatePR(workDir, base, head, title, body string) (string, error) {
 	var errCreate bytes.Buffer
 	cmdCreate.Stdout = &outCreate
 	cmdCreate.Stderr = &errCreate
-	err = cmdCreate.Run()
-
-	if err != nil {
+	if err := cmdCreate.Run(); err != nil {
 		return "", fmt.Errorf("gh pr create failed: %s: %w", errCreate.String(), err)
 	}
 

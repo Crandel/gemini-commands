@@ -27,6 +27,7 @@ type Status struct {
 	ClonePath    string `yaml:"clone_path"`
 	Error        string `yaml:"error"`
 	PRURL        string `yaml:"pr_url"`
+	PRTitle      string `yaml:"pr_title"`
 }
 
 // Create creates a new status.yaml file with initial values.
@@ -139,6 +140,39 @@ func Write(featureDir, step, repo, branch string) error {
 		return fmt.Errorf("renaming status.yaml.tmp to status.yaml: %w", err)
 	}
 
+	return nil
+}
+
+// WritePRTitle updates the status.yaml file with the given PR title.
+func WritePRTitle(featureDir, title string) error {
+	statusPath := filepath.Join(featureDir, "status.yaml")
+
+	data, err := os.ReadFile(statusPath)
+	if err != nil {
+		return fmt.Errorf("reading status.yaml: %w", err)
+	}
+
+	var s Status
+	if err := yaml.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("unmarshaling status.yaml: %w", err)
+	}
+
+	s.PRTitle = title
+	s.UpdatedAt = time.Now().Format(time.RFC3339)
+
+	updatedData, err := yaml.Marshal(&s)
+	if err != nil {
+		return fmt.Errorf("marshaling status.yaml: %w", err)
+	}
+
+	tmpPath := statusPath + ".tmp"
+	if err := os.WriteFile(tmpPath, updatedData, 0644); err != nil {
+		return fmt.Errorf("writing status.yaml.tmp: %w", err)
+	}
+	if err := os.Rename(tmpPath, statusPath); err != nil {
+		os.Remove(tmpPath) //nolint:errcheck
+		return fmt.Errorf("renaming status.yaml.tmp to status.yaml: %w", err)
+	}
 	return nil
 }
 

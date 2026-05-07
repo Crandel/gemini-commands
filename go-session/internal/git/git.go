@@ -10,6 +10,11 @@ import (
 // RemoteURL returns the git remote origin URL, or "" if not in a git repo.
 // exec.Command is intentionally kept in the CLI layer, not in internal/commands.
 func RemoteURL() string {
+	return RemoteURLImpl()
+}
+
+// remoteURLImpl is the actual implementation of RemoteURL, allowing it to be swapped out for testing.
+var RemoteURLImpl = func() string {
 	out, err := exec.Command("git", "remote", "get-url", "origin").Output()
 	if err != nil {
 		return ""
@@ -37,6 +42,11 @@ func WorkDir() string {
 
 // CurrentBranch returns the current git branch name, or "" if unavailable.
 func CurrentBranch() string {
+	return CurrentBranchImpl()
+}
+
+// currentBranchImpl is the actual implementation of CurrentBranch, allowing it to be swapped out for testing.
+var CurrentBranchImpl = func() string {
 	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
 	if err != nil {
 		return ""
@@ -52,6 +62,11 @@ func CurrentBranch() string {
 // resolving refs/remotes/origin/HEAD locally without a network call.
 // Falls back to "main" on any error.
 func DefaultBranch() string {
+	return DefaultBranchImpl()
+}
+
+// defaultBranchImpl is the actual implementation of DefaultBranch, allowing it to be swapped out for testing.
+var DefaultBranchImpl = func() string {
 	out, err := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short").Output()
 	if err != nil {
 		return "main"

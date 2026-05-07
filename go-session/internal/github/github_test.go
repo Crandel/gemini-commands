@@ -67,55 +67,60 @@ func toExitCode(s string) int {
 }
 
 func TestCreatePR_NewPR(t *testing.T) {
-	// Mock exec.Command to simulate `gh pr view` failing (no existing PR)
-	// and `gh pr create` succeeding
 	originalExecCommand := execCommand
 	defer func() { execCommand = originalExecCommand }()
 
 	execCommand = func(name string, arg ...string) *exec.Cmd {
 		args := strings.Join(arg, " ")
 		if strings.Contains(args, "pr view") {
-			return mockExecCommand(t, "gh pr view", []string{"--json", "url"}, "", "no pull requests found", 1)(name, arg...)
+			return mockExecCommand(t, "gh pr view", []string{"--json", "url,state"}, "", "no pull requests found", 1)(name, arg...)
 		}
 		if strings.Contains(args, "pr create") {
 			return mockExecCommand(t, "gh pr create", []string{"--base", "main", "--head", "feature", "--title", "feat: feature", "--body-file"}, "https://github.com/owner/repo/pull/1", "", 0)(name, arg...)
 		}
-		return exec.Command(name, arg...) // Fallback for other commands if any
+		return exec.Command(name, arg...)
 	}
 
-	workDir := t.TempDir() // Use t.TempDir() to create a temporary directory
-	base := "main"
-	head := "feature"
-	title := "feat: feature"
-	body := "PR Body"
-
-	prURL, err := CreatePR(workDir, base, head, title, body)
+	prURL, err := CreatePR(t.TempDir(), "main", "feature", "feat: feature", "PR Body")
 	require.NoError(t, err)
 	assert.Equal(t, "https://github.com/owner/repo/pull/1", prURL)
 }
 
-func TestCreatePR_PRAlreadyExists(t *testing.T) {
+func TestCreatePR_OpenPRAlreadyExists(t *testing.T) {
 	originalExecCommand := execCommand
 	defer func() { execCommand = originalExecCommand }()
 
 	execCommand = func(name string, arg ...string) *exec.Cmd {
 		args := strings.Join(arg, " ")
 		if strings.Contains(args, "pr view") {
-			return mockExecCommand(t, "gh pr view", []string{"--json", "url"}, `{"url": "https://github.com/owner/repo/pull/99"}`, "", 0)(name, arg...)
+			return mockExecCommand(t, "gh pr view", []string{"--json", "url,state"}, `{"url": "https://github.com/owner/repo/pull/99", "state": "OPEN"}`, "", 0)(name, arg...)
 		}
-		return exec.Command(name, arg...) // Fallback
+		return exec.Command(name, arg...)
 	}
 
-	workDir := t.TempDir()
-	base := "main"
-	head := "feature"
-	title := "feat: feature"
-	body := "PR Body"
+	prURL, err := CreatePR(t.TempDir(), "main", "feature", "feat: feature", "PR Body")
+	require.NoError(t, err)
+	assert.Equal(t, "https://github.com/owner/repo/pull/99", prURL)
+}
 
-	prURL, err := CreatePR(workDir, base, head, title, body)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "pr already exists for branch feature")
-	assert.Empty(t, prURL)
+func TestCreatePR_ClosedPRCreatesNew(t *testing.T) {
+	originalExecCommand := execCommand
+	defer func() { execCommand = originalExecCommand }()
+
+	execCommand = func(name string, arg ...string) *exec.Cmd {
+		args := strings.Join(arg, " ")
+		if strings.Contains(args, "pr view") {
+			return mockExecCommand(t, "gh pr view", []string{"--json", "url,state"}, `{"url": "https://github.com/owner/repo/pull/99", "state": "CLOSED"}`, "", 0)(name, arg...)
+		}
+		if strings.Contains(args, "pr create") {
+			return mockExecCommand(t, "gh pr create", []string{"--base", "main", "--head", "feature"}, "https://github.com/owner/repo/pull/100", "", 0)(name, arg...)
+		}
+		return exec.Command(name, arg...)
+	}
+
+	prURL, err := CreatePR(t.TempDir(), "main", "feature", "feat: feature", "PR Body")
+	require.NoError(t, err)
+	assert.Equal(t, "https://github.com/owner/repo/pull/100", prURL)
 }
 
 func TestCreatePR_EmptyBody(t *testing.T) {
@@ -125,10 +130,9 @@ func TestCreatePR_EmptyBody(t *testing.T) {
 	execCommand = func(name string, arg ...string) *exec.Cmd {
 		args := strings.Join(arg, " ")
 		if strings.Contains(args, "pr view") {
-			return mockExecCommand(t, "gh pr view", []string{"--json", "url"}, "", "no pull requests found", 1)(name, arg...)
+			return mockExecCommand(t, "gh pr view", []string{"--json", "url,state"}, "", "no pull requests found", 1)(name, arg...)
 		}
 		if strings.Contains(args, "pr create") {
-			// Verify --body-file is NOT passed when body is empty
 			assert.NotContains(t, args, "--body-file", "should not pass --body-file for empty body")
 			return mockExecCommand(t, "gh pr create", []string{"--base", "main", "--head", "feature", "--title", "feat: feature"}, "https://github.com/owner/repo/pull/2", "", 0)(name, arg...)
 		}
