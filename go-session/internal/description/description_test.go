@@ -27,6 +27,62 @@ func TestLoadDescription_NotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestCreateDescription(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		dir := t.TempDir()
+		content := "This is a test description."
+		err := description.CreateDescription(dir, content)
+		require.NoError(t, err)
+
+		data, err := os.ReadFile(filepath.Join(dir, "description.md"))
+		require.NoError(t, err)
+		assert.Equal(t, content, string(data))
+	})
+
+	t.Run("Error on empty content", func(t *testing.T) {
+		dir := t.TempDir()
+		err := description.CreateDescription(dir, "")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "content is empty")
+	})
+
+	t.Run("Error on whitespace content", func(t *testing.T) {
+		dir := t.TempDir()
+		err := description.CreateDescription(dir, "   \t\n   ")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "content is empty")
+	})
+
+	t.Run("Error if description.md already exists", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "description.md"), []byte("exists"), 0644))
+		err := description.CreateDescription(dir, "new content")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "already exists")
+	})
+
+	t.Run("Error on non-existent feature directory", func(t *testing.T) {
+		dir := filepath.Join(t.TempDir(), "non-existent")
+		err := description.CreateDescription(dir, "content")
+		assert.Error(t, err)
+	})
+
+	t.Run("Atomic write cleanup", func(t *testing.T) {
+		// This test is hard to trigger reliably, but we can check for temp files
+		// not being left over in the success case.
+		dir := t.TempDir()
+		content := "This is a test description."
+		err := description.CreateDescription(dir, content)
+		require.NoError(t, err)
+
+		files, err := os.ReadDir(dir)
+		require.NoError(t, err)
+		for _, file := range files {
+			assert.NotContains(t, file.Name(), "description.md.")
+		}
+	})
+}
+
 func TestRenderMarkdown_ValidMarkdown(t *testing.T) {
 	input := "# Heading\n**bold** _italic_\n- list item\n`code`"
 	output := description.RenderMarkdown(input)

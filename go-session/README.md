@@ -46,6 +46,48 @@ ai-session append-log <feature-dir> <message>
 ```
 Atomically appends a timestamped Markdown entry to `log.md`. Creates the file with a `# Work Log` header if it does not exist.
 
+### Description
+
+```bash
+ai-session description create <story-id> [content]
+```
+Creates `description.md` inside the resolved feature directory for the given story ID, atomically and with validation. The content can be provided as a positional argument or piped from stdin. This command is **non-idempotent** and will fail if `description.md` already exists.
+
+**Usage examples:**
+
+Positional argument:
+```bash
+ai-session description create sc-1234 "# Feature: Add user authentication
+
+## Problem
+Users cannot log in to the system."
+```
+
+Piped from stdin:
+```bash
+cat <<EOF | ai-session description create sc-1234
+# Feature: Add user authentication
+
+## Problem
+Users cannot log in to the system.
+EOF
+```
+
+Or using a file:
+```bash
+ai-session description create sc-1234 < description_draft.md
+```
+
+**Validation and error handling:**
+
+- **Empty content**: Fails if the content is empty or contains only whitespace. Remediation: provide non-empty content via positional argument or stdin.
+- **Ambiguous input**: Fails if both stdin and a positional argument are provided simultaneously. Remediation: provide content via only one method (either as an argument OR pipe from stdin, not both).
+- **File already exists**: Fails if `description.md` is already present in the feature directory. Remediation: delete the existing file first if you want to overwrite it.
+- **Feature directory not found**: Fails if the feature directory cannot be resolved or does not exist. Remediation: run `ai-session resolve-feature-dir <story-id>` to debug the path resolution.
+- **Feature directory unresolvable**: Fails if the story ID cannot be resolved to a valid feature directory path. Remediation: ensure the story ID is a valid Shortcut ID, a path with `/`, or that a `.features/<story-id>/` directory exists in the current working directory.
+
+This command follows the same atomic-write and validation pattern as `plan-write`, ensuring safe file creation without partial writes.
+
 ### PR Description
 
 ```bash

@@ -1,0 +1,16 @@
+go test ./...
+ok  	github.com/daniel-talonone/gemini-commands/cmd/ai-session	(cached)
+ok  	github.com/daniel-talonone/gemini-commands/internal/commands	(cached)
+ok  	github.com/daniel-talonone/gemini-commands/internal/dashboard	(cached)
+ok  	github.com/daniel-talonone/gemini-commands/internal/description	(cached)
+ok  	github.com/daniel-talonone/gemini-commands/internal/feature	(cached)
+?   	github.com/daniel-talonone/gemini-commands/internal/git	[no test files]
+ok  	github.com/daniel-talonone/gemini-commands/internal/github	(cached)
+ok  	github.com/daniel-talonone/gemini-commands/internal/implement	(cached)
+?   	github.com/daniel-talonone/gemini-commands/internal/llm	[no test files]
+ok  	github.com/daniel-talonone/gemini-commands/internal/log	(cached)
+ok  	github.com/daniel-talonone/gemini-commands/internal/plan	(cached)
+ok  	github.com/daniel-talonone/gemini-commands/internal/pr	(cached)
+ok  	github.com/daniel-talonone/gemini-commands/internal/review	(cached)
+ok  	github.com/daniel-talonone/gemini-commands/internal/server	(cached)
+ok  	github.com/daniel-talonone/gemini-commands/internal/status	(cached)
