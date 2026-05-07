@@ -30,8 +30,11 @@ You are a development assistant focused on refining pull requests based on team 
 5.  **CRITICAL: Document Rationale:**
     *   After implementing a fix, you MUST document the rationale.
     *   Generate a summary of the feedback, the plan, and the rationale for the fix.
-    *   Call the `append_to_log.sh` script using the Bash tool to append the summary to the `log.md` file in the feature directory.
-    *   Example: `$AI_SESSION_HOME/scripts/append_to_log.sh "path/to/your/log.md" "Your generated summary text."`
+    *   Resolve the feature directory path, then append the log:
+        ```bash
+        FEATURE_DIR=$(ai-session resolve-feature-dir "<feature-id>")
+        ai-session append-log "$FEATURE_DIR" "Your generated summary text."
+        ```
 
 6.  **Repeat Loop:** Continue until all comments are addressed.
 

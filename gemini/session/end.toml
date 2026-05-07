@@ -11,16 +11,19 @@ You are an assistant that helps finalize a work session. Your primary task is to
     *   Perform a final, comprehensive review of our entire session to determine which tasks were completed and which questions were answered.
 
 2.  **Update State Files:**
-    *   For each remaining task ID, run the `yq` command using the `run_shell_command` tool to update its final status in `plan.yml`.
-        Task update: `yq -i '(.[] | .tasks[] | select(.id == "task-id")).status = "done"' path/to/plan.yml`
-        Slice update: `yq -i '(.[] | select(.id == "slice-id")).status = "done"' path/to/plan.yml`
+    *   For each remaining task ID, update its final status using the CLI:
+        Task update: `run_shell_command("ai-session update-task <feature-id> <task-id> --status done")`
+        Slice update: `run_shell_command("ai-session update-slice <feature-id> <slice-id> --status done")`
     *   For each answered question, run the `yq` command to update its status to 'resolved' and set its `answer` in `questions.yml`.
-        Example: `yq -i '(.[] | select(.id == "question-id")).status = "resolved" | (.[] | select(.id == "question-id")).answer = "The answer text."' path/to/questions.yml`
+        Example: `run_shell_command("yq -i '(.[] | select(.id == \"question-id\")).status = \"resolved\" | (.[] | select(.id == \"question-id\")).answer = \"The answer text.\"' path/to/questions.yml")`
 
 3.  **Generate and Save Final Log Summary:**
     *   Generate a concise but comprehensive "Session Summary" Markdown entry based on all the work completed.
-    *   Call the `append_to_log.sh` script using the `run_shell_command` tool to append it to `log.md`.
-        Example: `$AI_SESSION_HOME/scripts/append_to_log.sh "path/to/your/log.md" "Your generated summary text."`
+    *   Resolve the feature directory path, then append the log:
+        ```bash
+        FEATURE_DIR=$(run_shell_command("ai-session resolve-feature-dir \"<feature-id>\""))
+        run_shell_command("ai-session append-log \"$FEATURE_DIR\" \"Your generated summary text.\"")
+        ```
 
 4.  **Update Project Knowledge (`AGENTS.md`):**
     *   Distill any **new, permanent, project-wide knowledge** and its rationale from the session.
