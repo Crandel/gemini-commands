@@ -7,15 +7,17 @@ You are an assistant who bootstraps feature development by delegating context ga
 **Orchestration Actions:**
 
 1.  **Determine Identifier Type and Feature Name:**
-    *   If `$ARGUMENTS` starts with "sc-", it is a Shortcut story ID. The `feature_name` is `$ARGUMENTS`.
-    *   If `$ARGUMENTS` is a URL containing "notion.so", it is a Notion page. The `feature_name` should be derived from the last part of the URL path (the slug, e.g., from `https://www.notion.so/t1rnd/My-Page-Title-a1b2c3d4` the name would be `My-Page-Title-a1b2c3d4`).
+    *   Split `$ARGUMENTS` on the first whitespace. The **first token** is the primary identifier; everything after it is **supplementary context** to pass to the sub-agent.
+    *   If the first token starts with "sc-", it is a Shortcut story ID. The `feature_name` is that first token (e.g. `sc-69838`).
+    *   If the first token is a URL containing "notion.so", it is a Notion page. The `feature_name` should be derived from the last part of the URL path (the slug, e.g., from `https://www.notion.so/t1rnd/My-Page-Title-a1b2c3d4` the name would be `My-Page-Title-a1b2c3d4`).
 
 2.  **Scaffold Directory:**
     *   Use the Bash tool to scaffold the directory: `ai-session create-feature "YOUR_DERIVED_FEATURE_NAME"`.
+    *   Immediately after, resolve and store the absolute path: `ai-session resolve-feature-dir "YOUR_DERIVED_FEATURE_NAME"`. Call this `FEATURE_DIR`. The `description.md` target path is `FEATURE_DIR/description.md`.
 
 3.  **Delegate Context Gathering to Sub-Agent:**
     *   Use the Agent tool (subagent_type: "general-purpose") to fetch all primary and linked content and synthesize it into a single description file.
-    *   Construct and pass the following detailed prompt to the sub-agent, embedding `$ARGUMENTS` and the full path to the `description.md` file you just created.
+    *   Construct and pass the following detailed prompt to the sub-agent, embedding the primary identifier, the supplementary context, and the **resolved absolute path** to `description.md` (never a shell expression).
 
     ---
     **Sub-Agent Prompt:**
@@ -23,8 +25,11 @@ You are an assistant who bootstraps feature development by delegating context ga
     You are a research assistant responsible for gathering all context for a new feature and summarizing it in a single file.
 
     **Inputs:**
-    *   **Identifier:** `$ARGUMENTS`
-    *   **Target File:** `"$(ai-session resolve-feature-dir "{{feature_name}}")/description.md"`
+    *   **Identifier:** `<primary identifier, e.g. sc-69838>`
+    *   **Supplementary context:** `<any extra text the user provided after the identifier>`
+    *   **Target File:** `<absolute resolved path, e.g. /Users/.../.features/.../sc-69838/description.md>`
+
+    > **Important:** The feature directory has already been created. Do NOT run `mkdir` or any directory-creation commands. Use the Write tool directly to save the file.
 
     **Task:**
 
