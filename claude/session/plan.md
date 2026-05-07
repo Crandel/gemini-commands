@@ -17,7 +17,12 @@ Please perform the following steps:
 
 2.  **Gather Context:** Find the `### ✨ Session Context Loaded for...` block in the conversation history. This block contains the feature **Description** and **Project Conventions**. Use this as your primary context.
 
-3.  **Read Existing Files:** If `plan.yml` or `architecture.md` already exist in the target directory, read them before proceeding. **Never overwrite plan.yml** — only extend with new tasks. Preserve all existing entries and their statuses. `architecture.md` may be updated or replaced as part of this session.
+3.  **Read Existing Files:** If any of these already exist, read them before proceeding:
+    ```bash
+    ai-session plan get --architecture "<feature-id>"   # if architecture.md exists
+    ai-session plan get --questions "<feature-id>"      # if questions.yml exists
+    ```
+    For `plan.yml`, use `ai-session load-context "<feature-id>"` and extract the plan block. **Never overwrite plan.yml** — only extend with new tasks. Preserve all existing entries and their statuses. `architecture.md` may be updated or replaced as part of this session.
 
 4.  **Analyze Codebase:** Perform a high-level analysis using the Glob and Grep tools to understand relevant files and functions.
     *   Look for analogous implementations (sibling routes, similar handlers) to use as reference patterns.
@@ -34,7 +39,11 @@ Please perform the following steps:
         *   **Challenge the user's answers.** If the approach seems risky, say so. Offer alternatives. Surface tradeoffs they may not have considered.
         *   **This is a discussion, not a questionnaire.** Push back, propose options, argue for a better approach if you see one.
         *   Continue until you reach a shared understanding of the implementation strategy.
-        *   Once alignment is reached, use the Write tool to save `architecture.md` in the target directory with this structure:
+        *   Once alignment is reached, save `architecture.md` via the CLI:
+            ```bash
+            printf '%s' "$ARCH_MD" | ai-session plan write --architecture "<feature-id>"
+            ```
+            The content must follow this structure:
             ```markdown
             ## Strategy
             (additive/refactor/migration, which layers change and why)

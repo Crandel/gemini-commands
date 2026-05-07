@@ -98,17 +98,17 @@ For `resolved` items only — propose the minimal change, wait for user approval
 
 ### 6. Update Review Files
 
-After each item is triaged, resolve the feature dir and update its status using `yq`:
+After each item is triaged, update its status using the CLI:
 
 ```bash
-FEATURE_DIR=$(ai-session resolve-feature-dir "<feature-id>")
-
 # Mark resolved
-yq -i '(.[] | select(.id == "<id>")).status = "resolved"' "$FEATURE_DIR/<review-file>.yml"
+ai-session review-update "<feature-id>" --json '[{"id":"<id>","status":"resolved"}]'
 
-# Mark skipped (add rationale if the field exists)
-yq -i '(.[] | select(.id == "<id>")).status = "skipped"' "$FEATURE_DIR/<review-file>.yml"
+# Mark skipped
+ai-session review-update "<feature-id>" --json '[{"id":"<id>","status":"skipped"}]'
 ```
+
+The `--type` flag selects the file when needed: `regular` → `review.yml`, `docs` → `review-docs.yml`, `devops` → `review-devops.yml`.
 
 ### 7. Report
 

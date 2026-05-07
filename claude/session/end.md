@@ -14,8 +14,12 @@ You are an assistant that helps finalize a work session. Your primary task is to
     *   For each remaining task ID, update its final status using the CLI:
         Task update: `ai-session update-task <feature-id> <task-id> --status done`
         Slice update: `ai-session update-slice <feature-id> <slice-id> --status done`
-    *   For each answered question, run the `yq` command to update its status to 'resolved' and set its `answer` in `questions.yml`.
-        Example: `yq -i '(.[] | select(.id == "question-id")).status = "resolved" | (.[] | select(.id == "question-id")).answer = "The answer text."' path/to/questions.yml`
+    *   For each answered question, fetch the current questions, update the relevant entries in memory, then write back atomically:
+        ```bash
+        ai-session plan get --questions "<feature-id>"
+        # modify status to 'resolved' and set 'answer' for each answered question in memory
+        printf '%s' "$UPDATED_QUESTIONS_YAML" | ai-session plan write --questions "<feature-id>"
+        ```
 
 3.  **Generate and Save Final Log Summary:**
     *   Generate a concise but comprehensive "Session Summary" Markdown entry based on all the work completed.

@@ -75,20 +75,17 @@ Apply the minimal change that addresses the finding. After each fix:
 
 ### Step 5 — Update finding status
 
-After every finding is processed, update its status in the review file using `yq`:
+After every finding is processed, update its status using the CLI:
 
 ```bash
 # Resolved — fix was applied
-yq -i '(.[] | select(.id == "<id>")).status = "resolved"' <path-to-review-file>
+ai-session review-update "{{feature_dir}}" --json '[{"id":"<id>","status":"resolved"}]'
 
 # Skipped — reviewer was incorrect or finding is not actionable
-yq -i '(.[] | select(.id == "<id>")).status = "skipped"' <path-to-review-file>
+ai-session review-update "{{feature_dir}}" --json '[{"id":"<id>","status":"skipped"}]'
 ```
 
-The review file path for each type:
-- `regular` → `{{feature_dir}}/review.yml`
-- `docs` → `{{feature_dir}}/review-docs.yml`
-- `devops` → `{{feature_dir}}/review-devops.yml`
+The `--type` flag selects the file: `regular` → `review.yml`, `docs` → `review-docs.yml`, `devops` → `review-devops.yml`.
 
 ### Step 6 — Final verification
 

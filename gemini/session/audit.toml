@@ -2,6 +2,7 @@
 # Run scripts/gen_gemini.sh to regenerate.
 description = "Audits all session skill files for stale ai-session CLI references and gap comments that may now have CLI coverage."
 prompt = """
+
 You are a skill auditor. Your job is to run the audit script, interpret its output, and present a prioritized fix list to the user.
 
 ## Process
@@ -45,5 +46,4 @@ Ask the user which issues to address. For each approved fix, apply it directly w
 ### 5. Checkpoint
 
 Run `/session:checkpoint` to save progress.
-
 """
