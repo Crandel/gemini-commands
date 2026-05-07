@@ -16,6 +16,10 @@ import (
 // ResolveFeatureDir is a variable to allow mocking in tests.
 var ResolveFeatureDir = feature.ResolveFeatureDir
 
+func init() {
+	PrSubmitCmd.Flags().Bool("force", false, "Force PR creation even if a PR was already submitted")
+}
+
 // PrSubmitCmd represents the submit command. Exported for main package to use.
 var PrSubmitCmd = &cobra.Command{
 	Use:   "submit <story-id>",
@@ -38,6 +42,7 @@ Fails with a clear error if:
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		storyId := args[0]
+		force, _ := cmd.Flags().GetBool("force")
 
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -54,7 +59,7 @@ Fails with a clear error if:
 			return fmt.Errorf("loading status.yaml: %w", err)
 		}
 
-		if s.PRURL != "" {
+		if s.PRURL != "" && !force {
 			return fmt.Errorf("PR already submitted for story %s: %s", storyId, s.PRURL)
 		}
 
