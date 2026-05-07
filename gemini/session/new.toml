@@ -7,15 +7,17 @@ You are an assistant who bootstraps feature development by delegating context ga
 **Orchestration Actions:**
 
 1.  **Determine Identifier Type and Feature Name:**
-    *   If `{{args}}` starts with "sc-", it is a Shortcut story ID. The `feature_name` is `{{args}}`.
-    *   If `{{args}}` is a URL containing "notion.so", it is a Notion page. The `feature_name` should be derived from the last part of the URL path (the slug, e.g., from `https://www.notion.so/t1rnd/My-Page-Title-a1b2c3d4` the name would be `My-Page-Title-a1b2c3d4`).
+    *   Split `{{args}}` on the first whitespace. The **first token** is the primary identifier; everything after it is **supplementary context** to pass to the sub-agent.
+    *   If the first token starts with "sc-", it is a Shortcut story ID. The `feature_name` is that first token (e.g. `sc-69838`).
+    *   If the first token is a URL containing "notion.so", it is a Notion page. The `feature_name` should be derived from the last part of the URL path (the slug, e.g., from `https://www.notion.so/t1rnd/My-Page-Title-a1b2c3d4` the name would be `My-Page-Title-a1b2c3d4`).
 
 2.  **Scaffold Directory:**
     *   Use the `run_shell_command` tool to scaffold the directory: `ai-session create-feature "YOUR_DERIVED_FEATURE_NAME"`.
+    *   Immediately after, resolve and store the absolute path: `ai-session resolve-feature-dir "YOUR_DERIVED_FEATURE_NAME"`. Call this `FEATURE_DIR`. The `description.md` target path is `FEATURE_DIR/description.md`.
 
 3.  **Delegate Context Gathering to Sub-Agent:**
     *   Use the `generalist` tool to fetch all primary and linked content and synthesize it into a single description file.
-    *   Construct and pass the following detailed prompt to the sub-agent, embedding `{{args}}` and the full path to the `description.md` file you just created.
+    *   Construct and pass the following detailed prompt to the sub-agent, embedding the primary identifier, the supplementary context, and the **resolved absolute path** to `description.md` (never a shell expression).
 
     ---
     **Sub-Agent Prompt:**
@@ -23,8 +25,11 @@ You are an assistant who bootstraps feature development by delegating context ga
     You are a research assistant responsible for gathering all context for a new feature and summarizing it in a single file.
 
     **Inputs:**
-    *   **Identifier:** `{{args}}`
-    *   **Target File:** `"$(ai-session resolve-feature-dir "{{feature_name}}")/description.md"`
+    *   **Identifier:** `<primary identifier, e.g. sc-69838>`
+    *   **Supplementary context:** `<any extra text the user provided after the identifier>`
+    *   **Target File:** `<absolute resolved path, e.g. /Users/.../.features/.../sc-69838/description.md>`
+
+    > **Important:** The feature directory has already been created. Do NOT run `mkdir` or any directory-creation commands. Use the Write tool directly to save the file.
 
     **Task:**
 
@@ -52,12 +57,12 @@ You are an assistant who bootstraps feature development by delegating context ga
         *   Create a "## Linked Resources" section with a sub-section per linked resource.
 
     5.  **Save the Output:**
-        *   Use the `write_file` tool to save the synthesized Markdown to the **Target File**. Confirm without showing the content.
+        *   Use the Write tool to save the synthesized Markdown to the **Target File**. Confirm without showing the content.
     ---
 
 4.  **Establish Session Context (Final Step):**
-    *   Use the `read_file` tool to read the content of the `description.md` file the sub-agent just created.
-    *   Use the `read_file` tool to read the content of `AGENTS.md` from the project root (fall back to `GEMINI.md` if not present).
+    *   Read the content of the `description.md` file the sub-agent just created using the `read_file` tool.
+    *   Read the content of `AGENTS.md` from the project root using the `read_file` tool (fall back to `GEMINI.md` if not present).
     *   Format and display using the following Markdown structure EXACTLY:
 
         ```markdown
