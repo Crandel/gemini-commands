@@ -88,6 +88,7 @@ func ScanRoot(root string) ([]FeatureState, error) {
 				}
 
 				state := DeriveState(storyID, repoSlug, statusPtr, plan, defaultIsAlive)
+				state.Dir = storyDir
 				results = append(results, state)
 			}
 		}

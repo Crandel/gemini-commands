@@ -4,14 +4,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 
 	"github.com/daniel-talonone/gemini-commands/internal/feature"
 	"github.com/daniel-talonone/gemini-commands/internal/git"
 	"github.com/daniel-talonone/gemini-commands/internal/plan"
-	"github.com/daniel-talonone/gemini-commands/internal/status"
 	"github.com/spf13/cobra"
 )
 
@@ -19,8 +15,6 @@ func init() {
 	rootCmd.AddCommand(startPlanCmd)
 	startPlanCmd.Flags().Bool("skip-enrich", false, "Skip the post-plan task enrichment step")
 }
-
-const enrichScript = "scripts/enrich_tasks.sh"
 
 var startPlanCmd = &cobra.Command{
 	Use:   "start-plan <story-id>",
@@ -37,118 +31,30 @@ This command replaces the 'orchestrate.sh --plan' script.`,
 		if err != nil {
 			return fmt.Errorf("getting current working directory: %w", err)
 		}
-		remoteURL := git.RemoteURL()
-		featureDir, err := feature.ResolveFeatureDir(storyID, cwd, remoteURL)
+		featureDir, err := feature.ResolveFeatureDir(storyID, cwd, git.RemoteURL())
 		if err != nil {
 			return err
 		}
 		logger.Info("Feature directory resolved", "path", featureDir)
-
-		logger.Info("Verifying preconditions")
-		descPath := filepath.Join(featureDir, "description.md")
-		if _, err := os.Stat(descPath); os.IsNotExist(err) {
-			return fmt.Errorf("description.md not found in %s — run /session:new or /session:define first", featureDir)
-		}
-		logger.Info("Preconditions verified")
-
-		logger.Info("Updating status to 'plan'")
-		repo := git.OrgRepo()
-		branch := git.CurrentBranch()
-		if err := status.Write(featureDir, "plan", repo, branch); err != nil {
-			return fmt.Errorf("updating status: %w", err)
-		}
-		logger.Info("Status updated successfully")
-
-		logger.Info("Preparing plan prompt")
-		prompt, err := preparePlanPrompt(storyID)
-		if err != nil {
-			return fmt.Errorf("preparing plan prompt: %w", err)
-		}
-		logger.Info("Plan prompt prepared")
 
 		runner, err := getRunner()
 		if err != nil {
 			return fmt.Errorf("invalid --model flag: %w", err)
 		}
 
-		logger.Info("Executing LLM command")
-		if err := runner.Run(strings.NewReader(prompt), os.Stdout, os.Stderr); err != nil {
-			logger.Error("Gemini command failed", "error", err)
-			if writeErr := status.Write(featureDir, "plan-failed", repo, branch); writeErr != nil {
-				logger.Error("Failed to write plan-failed status", "error", writeErr)
-			}
-			return fmt.Errorf("plan generation failed")
-		}
-
-		logger.Info("Gemini command finished successfully")
-		logger.Info("Validating generated plan")
-		p, err := plan.LoadPlan(featureDir)
-		if err != nil {
-			logger.Error("Failed to load plan.yml", "error", err)
-			fmt.Fprintf(os.Stderr, "Error: plan.yml is missing or invalid: %v\n", err)
-			if writeErr := status.Write(featureDir, "plan-failed", repo, branch); writeErr != nil {
-				logger.Error("Failed to write plan-failed status", "error", writeErr)
-			}
-			return fmt.Errorf("plan.yml is missing or invalid: %w", err)
-		}
-		if len(p) == 0 {
-			logger.Error("Plan is empty")
-			fmt.Fprintf(os.Stderr, "Error: plan.yml is empty — LLM did not generate any plan content\n")
-			if writeErr := status.Write(featureDir, "plan-failed", repo, branch); writeErr != nil {
-				logger.Error("Failed to write plan-failed status", "error", writeErr)
-			}
-			return fmt.Errorf("plan.yml is empty: LLM did not generate any plan content")
-		}
-		logger.Info("Plan validation passed")
-
-		if err := status.Write(featureDir, "plan-done", repo, branch); err != nil {
-			return fmt.Errorf("updating status to plan-done: %w", err)
-		}
-		logger.Info("Status updated to plan-done")
-		fmt.Println("Plan generation successful.")
-
 		skipEnrich, _ := cmd.Flags().GetBool("skip-enrich")
+		runFn := plan.Run
 		if skipEnrich {
-			logger.Info("Skipping enrichment (--skip-enrich)")
-		} else {
-			logger.Info("Triggering synchronous enrichment")
-			enrichScriptPath := filepath.Join(getAISessionHome(), enrichScript)
-			enrichCmd := exec.Command(enrichScriptPath, featureDir)
-			enrichCmd.Stdout = os.Stdout
-			enrichCmd.Stderr = os.Stderr
-			if err := enrichCmd.Run(); err != nil {
-				logger.Error("Enrichment script failed", "error", err)
-				return fmt.Errorf("enrichment failed: %w", err)
-			}
-			logger.Info("Synchronous enrichment finished successfully")
+			runFn = plan.RunSkipEnrich
 		}
 
+		if err := runFn(cmd.Context(), storyID, featureDir, runner, func(msg string) {
+			logger.Info(msg)
+		}); err != nil {
+			return err
+		}
+
+		fmt.Println("Plan generation successful.")
 		return nil
 	},
-}
-
-func preparePlanPrompt(storyID string) (string, error) {
-	aiSessionHome := getAISessionHome()
-
-	promptPath := filepath.Join(aiSessionHome, "headless", "session", "plan.md")
-	content, err := os.ReadFile(promptPath)
-	if err != nil {
-		return "", fmt.Errorf("reading prompt file at %s: %w", promptPath, err)
-	}
-
-	prompt := strings.ReplaceAll(string(content), "<story-id>", storyID)
-	return prompt, nil
-}
-
-func getAISessionHome() string {
-	aiSessionHome := os.Getenv("AI_SESSION_HOME")
-	if aiSessionHome == "" {
-		executable, err := os.Executable()
-		if err != nil {
-			return "" // Should not happen in normal operation
-		}
-		// Assumes the executable is in go-session/bin/
-		aiSessionHome = filepath.Join(filepath.Dir(executable), "..", "..")
-	}
-	return aiSessionHome
 }

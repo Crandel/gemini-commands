@@ -11,21 +11,26 @@ You are an assistant that helps log work-in-progress and update the session stat
     *   Review our conversation since the last checkpoint to determine which tasks were completed and which questions were answered.
 
 2.  **Update State Files:**
-    *   For each completed task ID, update its status using the CLI:
-        Task update: `ai-session update-task <feature-id> <task-id> --status done`
-        Slice update: `ai-session update-slice <feature-id> <slice-id> --status done`
-    *   For each answered question, fetch the current questions, update the relevant entries in memory, then write back atomically:
+    *   Resolve the feature directory first, then use it for all CLI calls:
         ```bash
-        ai-session plan get --questions "<feature-id>"
-        # modify status to 'resolved' and set 'answer' for each answered question in memory
-        printf '%s' "$UPDATED_QUESTIONS_YAML" | ai-session plan write --questions "<feature-id>"
+        FEATURE_DIR=$(ai-session resolve-feature-dir "<feature-id>")
         ```
+    *   List slices and tasks to discover IDs and current statuses:
+        ```bash
+        ai-session plan-list "$FEATURE_DIR"
+        ai-session plan-list "$FEATURE_DIR" --slice <slice-id>
+        ```
+    *   For each completed task or slice, update its status:
+        ```bash
+        ai-session update-task "$FEATURE_DIR" <task-id> --status done
+        ai-session update-slice "$FEATURE_DIR" <slice-id> --status done
+        ```
+    *   Questions (`questions.yml`) have no CLI subcommand — skip question updates at checkpoint.
 
 3.  **Update Log (`log.md`):**
     *   Generate a concise Markdown summary of the work done.
-    *   Resolve the feature directory path, then append the log:
+    *   Append using the already-resolved feature directory:
         ```bash
-        FEATURE_DIR=$(ai-session resolve-feature-dir "<feature-id>")
         ai-session append-log "$FEATURE_DIR" "Your generated summary text."
         ```
 

@@ -4,18 +4,21 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath" // Added missing import
+	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/daniel-talonone/gemini-commands/internal/dashboard"
 	"github.com/daniel-talonone/gemini-commands/internal/description"
-	"github.com/daniel-talonone/gemini-commands/internal/feature"
+	"github.com/daniel-talonone/gemini-commands/internal/llm"
 	"github.com/daniel-talonone/gemini-commands/internal/log"
 	"github.com/daniel-talonone/gemini-commands/internal/plan"
 	"github.com/daniel-talonone/gemini-commands/internal/review"
@@ -62,7 +65,12 @@ type FeatureDetailData struct {
 	// HasOpenFindings is true if any finding in the selected review has status "open".
 	// Populated by the detail handler after loading findings.
 	HasOpenFindings bool
+
+	// PipelineStep is the current pipeline_step from status.yaml.
+	// Used to render the correct button state on page load.
+	PipelineStep string
 }
+
 // Server is the dashboard HTTP server.
 //go:generate mockgen -source=server.go -destination=mock_server.go -package=server
 type Scanner interface {
@@ -80,6 +88,11 @@ type Server struct {
 	port        int
 	http        *http.Server
 	ScanAllFunc func() ([]dashboard.FeatureState, error)
+	hubs        map[string]*FeatureHub
+	hubsMu      sync.Mutex
+	cancels     map[string]context.CancelFunc
+	cancelsMu   sync.Mutex
+	tmpl        *template.Template
 }
 
 // New creates a new Server listening on the given port.
@@ -87,7 +100,41 @@ func New(port int, scanner Scanner) *Server {
 	return &Server{
 		port:        port,
 		ScanAllFunc: scanner.ScanAll,
+		hubs:        make(map[string]*FeatureHub),
+		cancels:     make(map[string]context.CancelFunc),
 	}
+}
+
+func (s *Server) storePlanCancel(id string, cancel context.CancelFunc) {
+	s.cancelsMu.Lock()
+	s.cancels[id] = cancel
+	s.cancelsMu.Unlock()
+}
+
+func (s *Server) removePlanCancel(id string) {
+	s.cancelsMu.Lock()
+	delete(s.cancels, id)
+	s.cancelsMu.Unlock()
+}
+
+func (s *Server) cancelPlan(id string) {
+	s.cancelsMu.Lock()
+	if cancel, ok := s.cancels[id]; ok {
+		cancel()
+		delete(s.cancels, id)
+	}
+	s.cancelsMu.Unlock()
+}
+
+func (s *Server) getOrCreateHub(id string) *FeatureHub {
+	s.hubsMu.Lock()
+	defer s.hubsMu.Unlock()
+	if h, ok := s.hubs[id]; ok {
+		return h
+	}
+	h := NewFeatureHub()
+	s.hubs[id] = h
+	return h
 }
 
 // Start parses the template, registers routes, and begins listening.
@@ -99,6 +146,7 @@ func (s *Server) Start() error {
 	if err != nil {
 		return fmt.Errorf("parsing template: %w", err)
 	}
+	s.tmpl = tmpl
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.MakeListHandler(tmpl))
@@ -108,6 +156,16 @@ func (s *Server) Start() error {
 			s.MakeResetHandler()(w, r)
 		} else if strings.HasSuffix(pathSuffix, "/plan") && r.Method == http.MethodPost {
 			s.MakePlanHandler()(w, r)
+		} else if strings.HasSuffix(pathSuffix, "/events") && r.Method == http.MethodGet {
+			s.MakeFeatureEventsHandler()(w, r)
+		} else if strings.HasSuffix(pathSuffix, "/plan-section") && r.Method == http.MethodGet {
+			s.MakePlanSectionHandler()(w, r)
+		} else if strings.HasSuffix(pathSuffix, "/plan-area") && r.Method == http.MethodGet {
+			s.MakePlanAreaHandler()(w, r)
+		} else if strings.HasSuffix(pathSuffix, "/plan-stop") && r.Method == http.MethodPost {
+			s.MakePlanStopHandler()(w, r)
+		} else if strings.HasSuffix(pathSuffix, "/clear") && r.Method == http.MethodPost {
+			s.MakeClearHandler()(w, r)
 		} else {
 			s.MakeFeatureDetailHandler(tmpl)(w, r)
 		}
@@ -211,11 +269,9 @@ func (s *Server) MakeResetHandler() http.HandlerFunc {
 			return
 		}
 
-		// Resolve feature directory
-		remoteURL := "https://github.com/" + found.Repo
-		dir, err := feature.ResolveFeatureDir(id, ".", remoteURL)
-		if err != nil {
-			http.Error(w, "resolve error: "+err.Error(), http.StatusInternalServerError)
+		dir := found.Dir
+		if dir == "" {
+			http.Error(w, "feature directory not found", http.StatusNotFound)
 			return
 		}
 
@@ -238,21 +294,30 @@ func (s *Server) MakeResetHandler() http.HandlerFunc {
 			return
 		}
 
-		// Redirect to feature detail page
-		http.Redirect(w, r, "/feature/"+id, http.StatusSeeOther)
+		// Return plan_section fragment for HTMX; fall back to redirect for plain requests.
+		if r.Header.Get("HX-Request") != "true" {
+			http.Redirect(w, r, "/feature/"+id, http.StatusSeeOther)
+			return
+		}
+
+		data := FeatureDetailData{ID: id}
+		if pln, err := plan.LoadPlan(dir); err == nil {
+			data.Plan = pln
+		}
+		var buf bytes.Buffer
+		if err := s.tmpl.ExecuteTemplate(&buf, "plan_section", data); err != nil {
+			http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(buf.Bytes())
 	}
 }
 
 func (s *Server) MakePlanHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Only handle POST requests to paths ending with /plan
-		pathSuffix := strings.TrimPrefix(r.URL.Path, "/feature/")
-		if r.Method != http.MethodPost || !strings.HasSuffix(pathSuffix, "/plan") {
-			http.NotFound(w, r)
-			return
-		}
-
 		// Extract feature ID by removing /plan suffix
+		pathSuffix := strings.TrimPrefix(r.URL.Path, "/feature/")
 		id := strings.TrimSuffix(pathSuffix, "/plan")
 		if id == "" {
 			http.NotFound(w, r)
@@ -278,33 +343,362 @@ func (s *Server) MakePlanHandler() http.HandlerFunc {
 			return
 		}
 
-		// Resolve feature directory
-		remoteURL := "https://github.com/" + found.Repo
-		dir, err := feature.ResolveFeatureDir(id, ".", remoteURL)
+		// Use the directory recorded by the scanner — no re-resolution needed.
+		dir := found.Dir
+		if dir == "" {
+			http.Error(w, "feature directory not found", http.StatusNotFound)
+			return
+		}
+
+		// Load plan only if plan.yml exists; a missing file means no plan yet.
+		if _, statErr := os.Stat(filepath.Join(dir, "plan.yml")); statErr == nil {
+			pln, err := plan.LoadPlan(dir)
+			if err != nil {
+				http.Error(w, "failed to load plan: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if len(pln) > 0 {
+				http.Error(w, "plan already exists", http.StatusConflict)
+				return
+			}
+		}
+
+		// Register a hub for this feature and start the plan goroutine.
+		h := s.getOrCreateHub(id)
+		model := llm.Model(r.FormValue("model"))
+		switch model {
+		case llm.ModelGemini, llm.ModelGeminiFlash, llm.ModelClaude:
+			// valid
+		default:
+			model = llm.ModelGemini
+		}
+
+		runner, err := llm.NewRunner(model, llm.RunnerOptions{})
 		if err != nil {
-			http.Error(w, "resolve error: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "runner error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Load plan to verify it's empty
-		pln, err := plan.LoadPlan(dir)
-		if err == nil && len(pln) > 0 {
-			// Plan exists and has slices — cannot create a new plan
-			http.Error(w, "plan already exists", http.StatusInternalServerError)
-			return
-		}
+		ctx, cancelFn := context.WithCancel(context.Background())
+		s.storePlanCancel(id, cancelFn)
 
-		// Spawn ai-session start-plan {id} as background process (fire-and-forget)
 		go func() {
-			cmd := exec.Command("ai-session", "start-plan", id)
-			_ = cmd.Run() // Ignore errors; this is a best-effort background operation
+			defer s.removePlanCancel(id)
+			fmt.Printf("[plan] starting: feature=%s model=%s dir=%s\n", id, model, dir)
+			runErr := plan.RunSkipEnrich(ctx, id, dir, runner, func(msg string) {
+				fmt.Printf("[plan] %s: %s\n", id, msg)
+				h.Publish(Event{Type: "progress", Message: msg})
+			})
+			if runErr != nil {
+				fmt.Printf("[plan] failed: feature=%s error=%v\n", id, runErr)
+				h.Publish(Event{Type: "failed", Message: runErr.Error()})
+			} else {
+				fmt.Printf("[plan] done: feature=%s\n", id)
+				h.Publish(Event{Type: "done", Message: "Plan ready"})
+			}
+			h.Close()
+			// Evict the hub after a grace period so late-connecting SSE clients fall
+			// through to the status.yaml fallback path.
+			time.AfterFunc(30*time.Second, func() {
+				s.hubsMu.Lock()
+				delete(s.hubs, id)
+				s.hubsMu.Unlock()
+			})
 		}()
 
-		// Redirect to feature detail page
+		// HTMX request: return the plan_area fragment directly so the browser
+		// can swap it in without a full page reload.
+		if r.Header.Get("HX-Request") == "true" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			data := FeatureDetailData{ID: id, PipelineStep: "plan"}
+			var buf bytes.Buffer
+			if err := s.tmpl.ExecuteTemplate(&buf, "plan_area", data); err != nil {
+				http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write(buf.Bytes())
+			return
+		}
+
+		// Regular form submit: redirect to feature detail page.
 		http.Redirect(w, r, "/feature/"+id, http.StatusSeeOther)
 	}
 }
 
+// MakeFeatureEventsHandler serves GET /feature/{id}/events as an SSE stream.
+// While a plan job is active for the feature, it forwards events from the hub.
+// Once the hub is gone (job finished + grace period elapsed), it sends one
+// synthetic "status" event derived from status.yaml so reconnecting clients
+// can settle into the correct UI state.
+func (s *Server) MakeFeatureEventsHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/feature/"), "/events")
+		if id == "" {
+			http.NotFound(w, r)
+			return
+		}
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming not supported", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		sendJSON := func(e Event) {
+			b, _ := json.Marshal(e)
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
+			flusher.Flush()
+		}
+
+		s.hubsMu.Lock()
+		h, active := s.hubs[id]
+		s.hubsMu.Unlock()
+
+		if !active {
+			// Job already finished or never started — synthesise from status.yaml.
+			features, err := s.ScanAllFunc()
+			if err != nil {
+				sendJSON(Event{Type: "failed", Message: "scan error: " + err.Error()})
+				return
+			}
+			var found *dashboard.FeatureState
+			for i := range features {
+				if features[i].StoryID == id {
+					found = &features[i]
+					break
+				}
+			}
+			if found == nil {
+				sendJSON(Event{Type: "failed", Message: "feature not found"})
+				return
+			}
+			dir := found.Dir
+			if dir == "" {
+				sendJSON(Event{Type: "failed", Message: "feature directory not found"})
+				return
+			}
+			st, err := status.LoadStatus(dir)
+			if err != nil {
+				sendJSON(Event{Type: "failed", Message: "status error: " + err.Error()})
+				return
+			}
+			sendJSON(Event{Type: "status", Step: st.PipelineStep})
+			return
+		}
+
+		ch, unsub := h.Subscribe()
+		defer unsub()
+
+		for {
+			select {
+			case e, ok := <-ch:
+				if !ok {
+					return
+				}
+				sendJSON(e)
+				if e.Type == "done" || e.Type == "failed" {
+					return
+				}
+			case <-r.Context().Done():
+				return
+			}
+		}
+	}
+}
+
+// MakePlanSectionHandler serves GET /feature/{id}/plan-section as an HTML
+// fragment containing the plan button area and plan details. Used by the HTMX
+// swap after plan generation completes.
+func (s *Server) MakePlanSectionHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/feature/"), "/plan-section")
+		if id == "" {
+			http.NotFound(w, r)
+			return
+		}
+
+		features, err := s.ScanAllFunc()
+		if err != nil {
+			http.Error(w, "scan error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var found *dashboard.FeatureState
+		for i := range features {
+			if features[i].StoryID == id {
+				found = &features[i]
+				break
+			}
+		}
+		if found == nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		dir := found.Dir
+		if dir == "" {
+			http.NotFound(w, r)
+			return
+		}
+
+		data := FeatureDetailData{ID: id}
+		if st, err := status.LoadStatus(dir); err == nil {
+			data.PipelineStep = st.PipelineStep
+		}
+		if pln, err := plan.LoadPlan(dir); err == nil {
+			data.Plan = pln
+		}
+
+		var buf bytes.Buffer
+		if err := s.tmpl.ExecuteTemplate(&buf, "plan_section", data); err != nil {
+			http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(buf.Bytes())
+	}
+}
+
+// MakePlanAreaHandler serves GET /feature/{id}/plan-area as an HTML fragment
+// containing only the plan button area. Used by the SSE failure handler to
+// re-render the split button without a full page reload.
+func (s *Server) MakePlanAreaHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/feature/"), "/plan-area")
+		if id == "" {
+			http.NotFound(w, r)
+			return
+		}
+
+		features, err := s.ScanAllFunc()
+		if err != nil {
+			http.Error(w, "scan error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var found *dashboard.FeatureState
+		for i := range features {
+			if features[i].StoryID == id {
+				found = &features[i]
+				break
+			}
+		}
+		if found == nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		dir := found.Dir
+		if dir == "" {
+			http.NotFound(w, r)
+			return
+		}
+
+		data := FeatureDetailData{ID: id}
+		if st, err := status.LoadStatus(dir); err == nil {
+			data.PipelineStep = st.PipelineStep
+		}
+
+		var buf bytes.Buffer
+		if err := s.tmpl.ExecuteTemplate(&buf, "plan_area", data); err != nil {
+			http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(buf.Bytes())
+	}
+}
+
+// MakePlanStopHandler handles POST /feature/{id}/plan-stop. It cancels the
+// in-flight plan goroutine for the feature and returns the idle plan_area fragment.
+func (s *Server) MakePlanStopHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/feature/"), "/plan-stop")
+		if id == "" {
+			http.NotFound(w, r)
+			return
+		}
+		fmt.Printf("[plan] stop requested: feature=%s\n", id)
+		s.cancelPlan(id)
+
+		data := FeatureDetailData{ID: id}
+		var buf bytes.Buffer
+		if err := s.tmpl.ExecuteTemplate(&buf, "plan_area", data); err != nil {
+			http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(buf.Bytes())
+	}
+}
+
+// MakeClearHandler handles POST /feature/{id}/clear. It removes plan.yml,
+// architecture.md, and questions.yml from the feature directory, appends a log
+// entry, and returns the plan_section fragment so the UI refreshes without reload.
+func (s *Server) MakeClearHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pathSuffix := strings.TrimPrefix(r.URL.Path, "/feature/")
+		id := strings.TrimSuffix(pathSuffix, "/clear")
+		if id == "" {
+			http.NotFound(w, r)
+			return
+		}
+
+		features, err := s.ScanAllFunc()
+		if err != nil {
+			http.Error(w, "scan error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var found *dashboard.FeatureState
+		for i := range features {
+			if features[i].StoryID == id {
+				found = &features[i]
+				break
+			}
+		}
+		if found == nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		dir := found.Dir
+		if dir == "" {
+			http.NotFound(w, r)
+			return
+		}
+
+		for _, name := range []string{"plan.yml", "architecture.md", "questions.yml"} {
+			path := filepath.Join(dir, name)
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				http.Error(w, "failed to remove "+name+": "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
+		if err := status.Write(dir, "", "", ""); err != nil {
+			http.Error(w, "failed to clear pipeline_step: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		_ = log.AppendLog(dir, "Plan cleared via dashboard (plan.yml, architecture.md, questions.yml removed).")
+
+		if r.Header.Get("HX-Request") != "true" {
+			http.Redirect(w, r, "/feature/"+id, http.StatusSeeOther)
+			return
+		}
+
+		data := FeatureDetailData{ID: id}
+		var buf bytes.Buffer
+		if err := s.tmpl.ExecuteTemplate(&buf, "plan_section", data); err != nil {
+			http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(buf.Bytes())
+	}
+}
 
 func (s *Server) MakeListHandler(tmpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -425,11 +819,8 @@ func (s *Server) MakeFeatureDetailHandler(tmpl *template.Template) http.HandlerF
 			return
 		}
 
-		// Use Repo from the scanner to build a synthetic remote URL so
-		// ResolveFeatureDir remains the single source of truth for path resolution.
-		remoteURL := "https://github.com/" + found.Repo
-		dir, err := feature.ResolveFeatureDir(id, ".", remoteURL)
-		if err != nil {
+		dir := found.Dir
+		if dir == "" {
 			http.NotFound(w, r)
 			return
 		}
@@ -447,6 +838,7 @@ func (s *Server) MakeFeatureDetailHandler(tmpl *template.Template) http.HandlerF
 			data.PRURL = st.PRURL
 			data.StoryURL = st.StoryURL
 			data.WorkDir = st.WorkDir
+			data.PipelineStep = st.PipelineStep
 		}
 		if pln, err := plan.LoadPlan(dir); err == nil {
 			data.Plan = pln

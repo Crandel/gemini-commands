@@ -7,14 +7,14 @@ You are an orchestrator for creating pull requests. You will gather all necessar
 **Process:**
 
 1.  **Gather All Context:**
-    *   **Git Context:** Call `$AI_SESSION_HOME/scripts/get_git_context.sh` using the `run_shell_command` to get the diff (decode it from base64) and the current branch name.
-    *   **Feature Context:** Identify the active feature directory and read the content of `plan.yml` and `log.md`.
+    *   **Git Context:** Call `$AI_SESSION_HOME/scripts/get_git_context.sh` using the `run_shell_command` tool to get the diff (decode it from base64) and the current branch name.
+    *   **Feature Context:** Identify the active feature ID and run `ai-session load-context "<feature-id>"` to get all feature files. Extract `plan.yml` and `log.md` from the output.
     *   **Session Context:** Find the `### ✨ Session Context Loaded for...` block and extract the **Description**.
-    *   **Project Conventions:** Read the `AGENTS.md` file. Its content is for your internal use and should be retained in your working memory. **DO NOT display its content.**
-    *   **PR Template:** Read the content of `.git/pull_request_template.md`.
+    *   **Project Conventions:** Read the `AGENTS.md` file using the `read_file` tool. Its content is for your internal use and should be retained in your working memory. **DO NOT display its content.**
+    *   **PR Template:** Read the content of `.git/pull_request_template.md` using the `read_file` tool.
 
 2.  **Delegate Description Generation to Sub-Agent:**
-    *   use the `generalist` tool to generate the PR description.
+    *   Use the `generalist` tool to generate the PR description.
     *   Construct and pass a detailed prompt to the sub-agent containing all the context you just gathered.
 
     ---
@@ -39,23 +39,24 @@ You are an orchestrator for creating pull requests. You will gather all necessar
 
 3.  **Find Existing Pull Request:**
     *   Use the current branch name from the git context.
-    *   Use the GitHub MCP to search for an open PR for the current branch.
+    *   Use the `github.search_pull_requests` tool to search for an open PR for the current branch.
 
 4.  **Review, and then Update or Create the Pull Request:**
     *   You have the PR description from the sub-agent.
     *   **If a PR exists:**
-        *   Update its body with the new description using the GitHub MCP.
+        *   Update its body with the new description using the `github.update_pull_request` tool.
     *   **If no PR exists:**
         *   **CRITICAL: First, display the full generated PR description to the user for review.**
         *   Then, ask the user for approval to create a new pull request.
-        *   If approved, create it.
+        *   If approved, create it using the `github.create_pull_request` tool.
         *   If denied, run the fallback (Step 6).
 
 5.  **CRITICAL: Save PR Link & Update Session Context:**
     *   Get the URL of the pull request.
-    *   Read the current content of `description.md` from the feature directory.
-    *   Append the PR URL to the content you just read.
-    *   use the `write_file` tool to save the new combined content back to `description.md`.
+    *   Run `ai-session load-context "<feature-id>"` and extract the current `description.md` content.
+    *   Append the PR URL to that content.
+    *   Use the `write_file` tool to save the new combined content back to `description.md`.
+    *   *(Note: `ai-session description create` cannot be used here — the file already exists. This is a known gap until `ai-session description update` is available.)*
     *   **CRITICAL:** Output a new "Session Context" block to reflect the change, formatted exactly like this:
 
         ```markdown
@@ -68,5 +69,7 @@ You are an orchestrator for creating pull requests. You will gather all necessar
         ```
 
 6.  **Fallback - Create Local File:**
-    *   If instructed not to create a PR, save the generated description to `pull_request_descr.md` in the feature directory.
+    *   If instructed not to create a PR, save the generated description to `pull_request_descr.md` in the feature directory using the `write_file` tool.
+
+**Begin.**
 """
