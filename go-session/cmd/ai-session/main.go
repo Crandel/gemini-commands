@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/daniel-talonone/gemini-commands/internal/llm"
+	"github.com/daniel-talonone/gemini-commands/internal/plan"
 	"github.com/spf13/cobra"
 )
 
@@ -35,6 +36,12 @@ func init() {
 // getRunner returns the Runner selected by the --model flag.
 func getRunner() (llm.Runner, error) {
 	return llm.NewRunner(llm.Model(modelFlag), llm.RunnerOptions{Timeout: timeoutFlag})
+}
+
+// getAISessionHome delegates to plan.AISessionHome so cmd-layer files
+// can continue using the same name without changes.
+func getAISessionHome() string {
+	return plan.AISessionHome()
 }
 
 func main() {

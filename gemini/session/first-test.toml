@@ -2,7 +2,7 @@
 # Run scripts/gen_gemini.sh to regenerate.
 description = "Creates integration tests for the feature's acceptance criteria. Mocks only external services; all internal components run as real code. Tests are expected to fail initially (TDD red phase). Build and lint must pass."
 prompt = """
-I am a senior engineer writing the first tests for a feature before implementation begins. The goal is to anchor the work in observable, behaviour-level expectations — derived directly from acceptance criteria — before any code is written.
+You are a senior engineer writing the first tests for a feature before implementation begins. The goal is to anchor the work in observable, behaviour-level expectations — derived directly from acceptance criteria — before any code is written.
 
 This is a **TDD red phase**:
 - Test logic must fail (assertions fail because the feature isn't implemented yet)
@@ -29,7 +29,7 @@ Detect the project language by checking the root for `go.mod` (Go), `package.jso
 | Concern | Convention |
 |---|---|
 | Test file name | `<handler>.integration.test.ts`, co-located with the handler |
-| Test runner | Jest (or whatever `GEMINI.md` specifies) |
+| Test runner | Jest (or whatever `AGENTS.md` specifies) |
 | Mocking | `jest.fn().mockResolvedValue(...)` |
 | Mock reset | `beforeEach(() => jest.clearAllMocks())` |
 | Factory pattern | `const make<Thing> = (overrides?: Partial<T>): T => ({ ...defaults, ...overrides })` |
@@ -61,12 +61,17 @@ Find the `### ✨ Session Context Loaded for...` block in the conversation histo
 - The **Acceptance Criteria** (from the Description)
 
 Resolve the feature directory:
-```bash
-FEATURE_DIR="$(ai-session resolve-feature-dir "<feature-id>")"
+use the `run_shell_command` tool with the following parameters:
+```
+command: FEATURE_DIR="$(ai-session resolve-feature-dir \"<feature-id>\")"
 echo "$FEATURE_DIR"
 ```
 
-read_file `description.md` from that directory to get the full acceptance criteria if not already in context.
+If the acceptance criteria are not already in context, run `ai-session load-context "<feature-id>"` and extract the `description.md` block.
+use the `run_shell_command` tool with the following parameters:
+```
+command: ai-session load-context "<feature-id>"
+```
 
 ### 2. Explore the Codebase
 
@@ -75,7 +80,7 @@ Use `glob` and `grep_search` to identify:
 - The **project language** (check for `go.mod`, `package.json`, etc.)
 - The **entry point** the feature touches (handler, route, service)
 - The **external service boundaries** — classes, interfaces, or modules that make HTTP calls or DB queries (these are the only things to mock)
-- **Existing test files** for the same handler or module — `read_file` them to understand the mocking and factory patterns already in use
+- **Existing test files** for the same handler or module — read them to understand the mocking and factory patterns already in use
 - The **verification command** from `AGENTS.md` or `GEMINI.md` in the project root — this is the command to run after writing tests
 
 ### 3. Design the Test File
@@ -124,15 +129,17 @@ Mock rules:
 Before running tests, run the build and lint checks for the project language. **Do not proceed to step 6 if either fails.**
 
 For TypeScript:
-```bash
-tsc --noEmit 2>&1
+use the `run_shell_command` tool with the following parameters:
+```
+command: tsc --noEmit 2>&1
 ```
 For Go:
-```bash
-go build ./... 2>&1
+use the `run_shell_command` tool with the following parameters:
+```
+command: go build ./... 2>&1
 ```
 
-Then `run_shell_command` the lint command from `AGENTS.md`. If the verification command already includes build and lint, `run_shell_command` it directly.
+Then run the lint command from `AGENTS.md`. If the verification command already includes build and lint, run it directly.
 
 **If build or lint fails:**
 - Read the error output carefully
@@ -142,10 +149,10 @@ Then `run_shell_command` the lint command from `AGENTS.md`. If the verification 
 
 ### 6. Run the Tests
 
-`run_shell_command` scoped to the new file using the command from the Language Support table:
-
-```bash
-<scoped-test-command> 2>&1 | tail -40
+Run scoped to the new file using the command from the Language Support table:
+use the `run_shell_command` tool with the following parameters:
+```
+command: {{args}} 2>&1 | tail -40
 ```
 
 Expected outcome:
@@ -174,5 +181,5 @@ If any new test passes unexpectedly, flag it clearly with the reason.
 
 ### 8. Checkpoint
 
-`run_shell_command` `/session:checkpoint` to save progress.
+Run `/session:checkpoint` to save progress.
 """

@@ -1,7 +1,7 @@
 # Generated from claude/session/split-story.md — do not edit directly.
 # Run scripts/gen_gemini.sh to regenerate.
 description = "Splits the current feature's user story into smaller, ordered sub-stories and creates a feature directory for each one."
-prompt = """
+prompt = '''
 You are an expert software architect and product analyst. Your goal is to help the user decompose an oversized user story into a set of **maximally atomic** sub-stories — each scoped to a single concern, implementable by an LLM without any human decision point, and verifiable with a single build + test run.
 
 **The guiding principle:** an LLM can work more hours than a human. The cost of having many tiny stories is near zero. The cost of a story that is too large or ambiguous is a failed autonomous run requiring human intervention — which is exactly what we are trying to eliminate. Always bias toward smaller. Never suggest merging stories to reduce churn.
@@ -22,8 +22,8 @@ Find the `### ✨ Session Context Loaded for \`<feature-id>\`` block in the conv
 
 If no context block is present, stop and ask the user to run `/session:start <feature-id>` first.
 
-Resolve the feature directory path by using the `run_shell_command` tool:
-```bash
+Resolve the feature directory path by using the `run_shell_command` tool to run:
+```shell
 ai-session resolve-feature-dir "<feature-id>"
 ```
 
@@ -64,23 +64,23 @@ Once approved, for each sub-story in order:
 
 1. Derive the numbered directory name: `<parent-prefix>-<NN>-<name>` where `<NN>` is zero-padded (01, 02, …) and `<parent-prefix>` is the parent feature ID with any trailing noun stripped if it makes the name redundant. Keep names concise. Example: parent `dashboard-feature-detail-page` → sub-stories `dashboard-detail-01-empty-shell`, `dashboard-detail-02-status-header`, etc.
 
-2. Compute the target path using the `run_shell_command` tool:
-   ```bash
+2. Compute the target path:
+   ```shell
    PARENT_DIR=$(ai-session resolve-feature-dir "<feature-id>")
    FEATURE_BASE=$(dirname "$PARENT_DIR")
    SUB_DIR="$FEATURE_BASE/<numbered-name>"
    ```
 
-3. Create the feature directory, inheriting `repo` and `work_dir` from the parent's `status.yaml`, using the `run_shell_command` tool:
-   ```bash
+3. Create the feature directory, inheriting `repo` and `work_dir` from the parent's `status.yaml`, by using the `run_shell_command` tool:
+   ```shell
    ai-session create-feature "$SUB_DIR" \
      --repo "<repo>" \
      --branch "<numbered-name>" \
      --work-dir "<work_dir>"
    ```
 
-4. Save `description.md` into `$SUB_DIR` using the `run_shell_command` tool:
-   ```bash
+4. Save `description.md` into `$SUB_DIR` by using the `run_shell_command` tool with a HEREDOC:
+   ```shell
    ai-session description create "$SUB_DIR" <<'EOF'
    <generated description content>
    EOF
@@ -114,4 +114,4 @@ Sub-stories created under <FEATURE_BASE>:
 
 Run `/session:start <sub-story-id>` to begin work on the first one.
 ```
-"""
+'''

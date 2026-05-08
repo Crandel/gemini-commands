@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ai-session dashboard</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
   <style>
     body { font-family: monospace; padding: 1rem 2rem; background: #fafafa; color: #222; }
     h1 { margin-bottom: 0.5rem; font-size: 1.4rem; }
@@ -20,6 +21,22 @@
       background-color: #c82333; /* Darker red on hover */
       border-color: #bd2130;
     }
+    .split-btn { display: inline-flex; position: relative; }
+    .split-btn > button { border-radius: 3px 0 0 3px; border-right: none; }
+    .split-toggle { border-radius: 0 3px 3px 0; padding: 0.3rem 0.5rem; cursor: pointer; list-style: none; }
+    .split-toggle::-webkit-details-marker { display: none; }
+    .split-menu {
+      position: absolute; top: 100%; left: 0; z-index: 10;
+      background: #fff; border: 1px solid #ccc; border-radius: 3px;
+      min-width: 100%; margin-top: 2px; box-shadow: 0 2px 6px rgba(0,0,0,.15);
+    }
+    .split-menu button {
+      display: block; width: 100%; text-align: left;
+      border: none; border-radius: 0; background: #fff;
+      padding: 0.4rem 0.8rem; margin-bottom: 0;
+    }
+    .split-menu button:hover { background: #f0f0f0; }
+    .model-check { display: inline-block; width: 1.2em; }
     table { border-collapse: collapse; width: 100%; background: #fff; border: 1px solid #ddd; border-radius: 3px; }
     th {
       text-align: left;
@@ -154,6 +171,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ai-session — {{.ID}}</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
     <style>
       body { font-family: monospace; padding: 1rem 2rem; background: #fafafa; color: #222; }
       h1 { margin-bottom: 0.5rem; font-size: 1.4rem; }
@@ -181,6 +199,30 @@
       .slice h3 { margin: 0.5rem 0; font-size: 1rem; }
       .slice ul { margin: 0.5rem 0; padding-left: 1.5rem; }
       .slice li { margin: 0.3rem 0; }
+
+      select, button { padding: 0.3rem 0.6rem; font-family: monospace; font-size: 0.9rem; border: 1px solid #ccc; border-radius: 3px; background: #fff; }
+      button { cursor: pointer; background: #f0f0f0; }
+      button:hover { background: #e0e0e0; }
+      .reset-button { background-color: #dc3545; color: #fff; border-color: #dc3545; }
+      .reset-button:hover { background-color: #c82333; border-color: #bd2130; }
+      .split-btn { display: inline-flex; position: relative; }
+      .split-btn > button { border-radius: 3px 0 0 3px; border-right: none; }
+      .split-toggle { border-radius: 0 3px 3px 0; padding: 0.3rem 0.5rem; cursor: pointer; list-style: none; }
+      .split-toggle::-webkit-details-marker { display: none; }
+      .split-menu {
+        position: absolute; top: 100%; left: 0; z-index: 10;
+        background: #fff; border: 1px solid #ccc; border-radius: 3px;
+        min-width: 100%; margin-top: 2px; box-shadow: 0 2px 6px rgba(0,0,0,.15);
+      }
+      .split-menu button {
+        display: block; width: 100%; text-align: left;
+        border: none; border-radius: 0; background: #fff;
+        padding: 0.4rem 0.8rem; margin-bottom: 0;
+      }
+      .split-menu button:hover { background: #f0f0f0; }
+      .model-check { display: inline-block; width: 1.2em; }
+      .split-btn details { margin: 0; border: none; border-radius: 0; padding: 0; background: transparent; display: inline-flex; }
+      .split-btn summary { margin: 0; font-weight: normal; }
 
       /* Review Section Styles */
       .review-section-content { margin-top: 0.8rem; }
@@ -230,32 +272,9 @@
     </div>
   </details>
   {{end}}
-  {{if .Plan}}
-  <form method="POST" action="/feature/{{.ID}}/reset" style="margin-top: 1rem;">
-    <button type="submit" class="reset-button" onclick="return confirm('Reset all task statuses to todo?');">Reset</button>
-  </form>
-  {{end}}
-  {{if .Plan}}
-  <details open>
-    <summary>Plan</summary>
-    <div class="plan-content">
-      {{range .Plan}}
-      <div class="slice">
-        <h3>{{.ID}} — {{.Description}}</h3>
-        <span class="status-badge {{.Status}}">{{.Status}}</span>
-        <ul>
-          {{range .Tasks}}
-          <li>
-            <strong>{{.ID}}</strong>: {{.Task}}
-            <span class="status-badge {{.Status}}">{{.Status}}</span>
-          </li>
-          {{end}}
-        </ul>
-      </div>
-      {{end}}
-    </div>
-  </details>
-  {{end}}
+  <div id="plan-section">
+    {{template "plan_section" .}}
+  </div>
 
   {{if .ReviewFiles}}
   <details {{if .HasOpenFindings}}open{{end}}>
@@ -300,5 +319,122 @@
   </body>
   </html>
   {{end}}
+
+{{define "plan_area"}}
+{{if .Plan}}
+<div id="plan-area" style="margin-top: 1rem;">
+  <button class="reset-button"
+          hx-post="/feature/{{.ID}}/reset"
+          hx-confirm="Reset all task statuses to todo?"
+          hx-target="#plan-section"
+          hx-swap="innerHTML">Reset</button>
+  <button hx-post="/feature/{{.ID}}/clear"
+          hx-confirm="Remove plan.yml, architecture.md and questions.yml? This cannot be undone."
+          hx-target="#plan-section"
+          hx-swap="innerHTML"
+          style="margin-left: 0.5rem;">Clear</button>
+</div>
+{{else if eq .PipelineStep "plan"}}
+<div id="plan-area" style="margin-top: 1rem;">
+  <button disabled class="reset-button">Planning…</button>
+  <button hx-post="/feature/{{.ID}}/plan-stop"
+          hx-target="#plan-area"
+          hx-swap="outerHTML"
+          style="margin-left: 0.5rem;">Stop</button>
+  <span id="plan-msg" style="margin-left: 0.75rem; font-style: italic; color: #555;">Generating plan…</span>
+  <script>
+  (function() {
+    var area = document.getElementById('plan-area');
+    var msgEl = document.getElementById('plan-msg');
+    var es = new EventSource('/feature/{{.ID}}/events');
+    es.onmessage = function(e) {
+      var ev = JSON.parse(e.data);
+      if (ev.type === 'done' || (ev.type === 'status' && ev.step === 'plan-done')) {
+        es.close();
+        htmx.ajax('GET', '/feature/{{.ID}}/plan-section', {target: '#plan-section', swap: 'innerHTML'});
+      } else if (ev.type === 'failed' || (ev.type === 'status' && ev.step === 'plan-failed')) {
+        es.close();
+        htmx.ajax('GET', '/feature/{{.ID}}/plan-area', {target: '#plan-area', swap: 'outerHTML'});
+      } else if (ev.type === 'progress' && msgEl) {
+        msgEl.textContent = ev.message;
+      }
+    };
+    es.onerror = function() { es.close(); };
+  })();
+  </script>
+</div>
+{{else}}
+<div id="plan-area" style="margin-top: 1rem;">
+  {{if eq .PipelineStep "plan-failed"}}
+  <p style="color: red; margin-bottom: 0.5rem;">Previous plan attempt failed — check server logs.</p>
+  {{end}}
+  <div class="split-btn" id="plan-split-{{.ID}}">
+    <button class="reset-button"
+            hx-post="/feature/{{.ID}}/plan"
+            hx-vals='{"model":"gemini"}'
+            hx-target="#plan-area"
+            hx-swap="outerHTML">Plan</button>
+    <details>
+      <summary class="reset-button split-toggle">▾</summary>
+      <div class="split-menu" onclick="this.closest('details').removeAttribute('open')">
+        <button hx-post="/feature/{{.ID}}/plan"
+                hx-vals='{"model":"gemini"}'
+                hx-target="#plan-area"
+                hx-swap="outerHTML"
+                data-model="gemini"
+                onclick="planModelSelect(this)"><span class="model-check">✓</span>gemini (default)</button>
+        <button hx-post="/feature/{{.ID}}/plan"
+                hx-vals='{"model":"gemini-flash"}'
+                hx-target="#plan-area"
+                hx-swap="outerHTML"
+                data-model="gemini-flash"
+                onclick="planModelSelect(this)"><span class="model-check"></span>gemini-flash</button>
+        <button hx-post="/feature/{{.ID}}/plan"
+                hx-vals='{"model":"claude"}'
+                hx-target="#plan-area"
+                hx-swap="outerHTML"
+                data-model="claude"
+                onclick="planModelSelect(this)"><span class="model-check"></span>claude</button>
+      </div>
+    </details>
+  </div>
+  <script>
+  function planModelSelect(btn) {
+    var splitBtn = btn.closest('.split-btn');
+    splitBtn.querySelectorAll('.model-check').forEach(function(el) { el.textContent = ''; });
+    btn.querySelector('.model-check').textContent = '✓';
+    var primary = splitBtn.querySelector('[hx-post]');
+    primary.setAttribute('hx-vals', '{"model":"' + btn.dataset.model + '"}');
+    htmx.process(primary);
+  }
+  </script>
+</div>
+{{end}}
+{{end}}
+
+{{define "plan_section"}}
+{{template "plan_area" .}}
+{{if .Plan}}
+<details open>
+  <summary>Plan</summary>
+  <div class="plan-content">
+    {{range .Plan}}
+    <div class="slice">
+      <h3>{{.ID}} — {{.Description}}</h3>
+      <span class="status-badge {{.Status}}">{{.Status}}</span>
+      <ul>
+        {{range .Tasks}}
+        <li>
+          <strong>{{.ID}}</strong>: {{.Task}}
+          <span class="status-badge {{.Status}}">{{.Status}}</span>
+        </li>
+        {{end}}
+      </ul>
+    </div>
+    {{end}}
+  </div>
+</details>
+{{end}}
+{{end}}
 </body>
 </html>

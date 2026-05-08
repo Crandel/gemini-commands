@@ -32,6 +32,7 @@ type PlanSlice struct {
 // FeatureState is the derived, template-ready view of one feature.
 type FeatureState struct {
 	StoryID            string
+	Dir                string // absolute path to the feature directory on disk
 	Repo               string // org/repo — from status.yaml or derived from dir path
 	Mode               string
 	WorkDir            string // absolute path to repo root on disk, from status.yaml

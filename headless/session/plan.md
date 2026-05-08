@@ -10,9 +10,9 @@ The feature identifier is: <story-id>
 **Process:**
 
 1. **Resolve Feature Directory:**
-   Run via `run_shell_command`:
-     FEATURE_DIR="$(ai-session resolve-feature-dir "<story-id>")"
-   If the directory does not exist, exit with an error message.
+   The feature directory has already been resolved by the caller. Use this path directly:
+     FEATURE_DIR="<feature-dir>"
+   Do not call `ai-session resolve-feature-dir` — the path above is authoritative.
 
 2. **Load Context:**
    Run via `run_shell_command`:
