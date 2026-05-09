@@ -28,13 +28,13 @@ properties:
     type: string
   pr_title:
     type: string
-  strategy:
+  implementation_strategy:
     type: string
     enum:
       - task
       - slice
     default: task
-    description: The implementation strategy to use. 'task' runs one LLM call per task. 'slice' runs one LLM call per slice.
+    description: The implementation strategy to use. 'task' runs one LLM call per task. 'slice' runs one LLM call per slice. Stored as 'strategy' in status.yaml.
 required:
   - repo
   - branch

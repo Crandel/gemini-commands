@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -99,10 +100,16 @@ func KnownStrategies() map[string]Strategy {
 	}
 }
 
-// KnownStrategyNames returns the sorted list of valid strategy names.
+// KnownStrategyNames returns the sorted list of valid strategy names derived from KnownStrategies().
 // Use for flag help text, template dropdowns, and error messages.
 func KnownStrategyNames() []string {
-	return []string{"task", "slice"}
+	m := KnownStrategies()
+	names := make([]string, 0, len(m))
+	for k := range m {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	return names
 }
 
 type Strategy interface {

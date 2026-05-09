@@ -1027,7 +1027,7 @@ func TestStrategyHandler_ValidStrategy(t *testing.T) {
 
 	st, err := status.LoadStatus(featureDir)
 	require.NoError(t, err)
-	assert.Equal(t, "slice", st.Strategy)
+	assert.Equal(t, "slice", st.ImplementationStrategy)
 }
 
 func TestStrategyHandler_UnknownStrategy(t *testing.T) {

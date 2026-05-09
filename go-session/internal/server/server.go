@@ -564,7 +564,7 @@ func (s *Server) MakePlanSectionHandler() http.HandlerFunc {
 		if st, err := status.LoadStatus(dir); err == nil {
 			data.PipelineStep = st.PipelineStep
 			data.IsRunning = isRunningStep(st.PipelineStep)
-			data.Strategy = st.Strategy
+			data.Strategy = st.ImplementationStrategy
 			if data.Strategy == "" {
 				data.Strategy = "task"
 			}
@@ -623,7 +623,7 @@ func (s *Server) MakePlanAreaHandler() http.HandlerFunc {
 		if st, err := status.LoadStatus(dir); err == nil {
 			data.PipelineStep = st.PipelineStep
 			data.IsRunning = isRunningStep(st.PipelineStep)
-			data.Strategy = st.Strategy
+			data.Strategy = st.ImplementationStrategy
 			if data.Strategy == "" {
 				data.Strategy = "task"
 			}
@@ -803,8 +803,8 @@ func (s *Server) MakeImplementHandler() http.HandlerFunc {
 
 		// Strategy: from status.yaml; default "task".
 		strategyVal := "task"
-		if st.Strategy != "" {
-			strategyVal = st.Strategy
+		if st.ImplementationStrategy != "" {
+			strategyVal = st.ImplementationStrategy
 		}
 
 		// Resolve binary path — we are the ai-session binary.
@@ -1069,7 +1069,7 @@ func (s *Server) MakeFeatureDetailHandler(tmpl *template.Template) http.HandlerF
 			data.WorkDir = st.WorkDir
 			data.PipelineStep = st.PipelineStep
 			data.IsRunning = isRunningStep(st.PipelineStep)
-			data.Strategy = st.Strategy
+			data.Strategy = st.ImplementationStrategy
 			if data.Strategy == "" {
 				data.Strategy = "task"
 			}

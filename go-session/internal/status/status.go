@@ -28,7 +28,7 @@ type Status struct {
 	Error        string `yaml:"error"`
 	PRURL        string `yaml:"pr_url"`
 	PRTitle      string `yaml:"pr_title"`
-	Strategy     string `yaml:"strategy"`
+	ImplementationStrategy string `yaml:"strategy"`
 }
 
 // Create creates a new status.yaml file with initial values.
@@ -192,7 +192,7 @@ func WriteStrategy(featureDir, strategy string) error {
 	if err := yaml.Unmarshal(data, &s); err != nil {
 		return fmt.Errorf("unmarshaling status.yaml: %w", err)
 	}
-	s.Strategy = strategy
+	s.ImplementationStrategy = strategy
 	s.UpdatedAt = time.Now().Format(time.RFC3339)
 	updatedData, err := yaml.Marshal(&s)
 	if err != nil {
