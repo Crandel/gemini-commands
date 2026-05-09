@@ -9,12 +9,12 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"log/slog"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/daniel-talonone/gemini-commands/internal/dashboard"
@@ -807,44 +807,36 @@ func (s *Server) MakeImplementHandler() http.HandlerFunc {
 			strategyVal = st.ImplementationStrategy
 		}
 
-		// Resolve binary path — we are the ai-session binary.
-		binaryPath, err := os.Executable()
+		runner, err := llm.NewRunner(modelVal, llm.RunnerOptions{})
 		if err != nil {
-			http.Error(w, "failed to resolve binary path: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "runner error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		cmd := exec.Command(binaryPath, "implement", id,
-			"--strategy="+strategyVal,
-			"--model="+string(modelVal),
-		)
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-		// Redirect subprocess stdout/stderr to the feature log file (AC#17).
-		logPath := filepath.Join(dir, "log.md")
-		logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			http.Error(w, "failed to open log file: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		cmd.Stdout = logFile
-		cmd.Stderr = logFile
-
-		if err := cmd.Start(); err != nil {
-			_ = logFile.Close()
-			_ = log.AppendLog(dir, fmt.Sprintf("Implement spawn failed: %v", err))
-			http.Error(w, "failed to spawn implement: "+err.Error(), http.StatusInternalServerError)
+		strats := implement.KnownStrategies()
+		strategy, ok := strats[strategyVal]
+		if !ok {
+			http.Error(w, "unknown strategy: "+strategyVal, http.StatusBadRequest)
 			return
 		}
 
-		// Close our copy of the log file — the subprocess has inherited the fd.
-		_ = logFile.Close()
+		workDir := st.WorkDir
+		if workDir == "" {
+			workDir, _ = os.Getwd()
+		}
+		aiSessionHome := os.Getenv("AI_SESSION_HOME")
 
-		pid := cmd.Process.Pid
-		_ = log.AppendLog(dir, fmt.Sprintf("Implement spawned via dashboard (strategy=%s, model=%s, pid=%d)", strategyVal, modelVal, pid))
-
-		// Write pipeline_step before returning so the UI reflects running state.
+		// Write pipeline_step before launching so the UI reflects running state immediately.
 		_ = status.Write(dir, "implement", "", "")
+		_ = log.AppendLog(dir, fmt.Sprintf("Implement started via dashboard (strategy=%s, model=%s)", strategyVal, modelVal))
+
+		go func() {
+			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+			if err := implement.Run(logger, id, dir, workDir, aiSessionHome, 5, 10*time.Second, strategy, runner); err != nil {
+				logger.Error("implement run failed", "feature_id", id, "error", err)
+				_ = log.AppendLog(dir, fmt.Sprintf("Implement failed: %v", err))
+			}
+		}()
 
 		if r.Header.Get("HX-Request") != "true" {
 			http.Redirect(w, r, "/feature/"+id, http.StatusSeeOther)

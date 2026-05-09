@@ -353,7 +353,7 @@ func Run(logger *slog.Logger, featureID, featureDir, workDir, aiSessionHome stri
 	// Initial verification gate — codebase must be passing before we start.
 	appendLog(logger, featureDir, "Running initial verification gate...")
 	logger.Info("Running initial verification gate")
-	if err := runShell(verificationCmd); err != nil {
+	if err := runShell(verificationCmd, workDir); err != nil {
 		msg := fmt.Sprintf("Initial verification failed — codebase must be in a passing state to begin: %v", err)
 		appendLog(logger, featureDir, msg)
 		return errors.New(msg)
@@ -631,6 +631,7 @@ func executeTaskWithRetry(logger *slog.Logger, featureDir, aiSessionHome, workDi
 		// Gemini exited non-zero (e.g. due to a rate-limit or transient API error).
 		var verificationOutput bytes.Buffer
 		verifyCmd := exec.Command("sh", "-c", verificationCmd)
+		verifyCmd.Dir = workDir
 		verifyCmd.Stdout = &verificationOutput
 		verifyCmd.Stderr = &verificationOutput
 		verifyErr := verifyCmd.Run()
@@ -707,9 +708,10 @@ func ExtractVerificationCommand(dir string) (string, error) {
 	return strings.TrimSpace(string(matches[1])), nil
 }
 
-// runShell executes a shell command, streaming output to stdout/stderr.
-func runShell(shellCmd string) error {
+// runShell executes a shell command in the given directory, streaming output to stdout/stderr.
+func runShell(shellCmd, dir string) error {
 	cmd := exec.Command("sh", "-c", shellCmd)
+	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
