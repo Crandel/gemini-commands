@@ -201,9 +201,9 @@ ai-session review-update sc-1234 --docs --json '[{"id":"unclear-docs","status":"
 ### Orchestration
 
 ```bash
-ai-session implement <story-id> [--max-retries 5] [--retry-delay 10s]
+ai-session implement <story-id> [--max-retries 5] [--retry-delay 10s] [--strategy task|slice]
 ```
-Headless LLM implementation loop. Reads `AGENTS.md` from the target project for the verification command and context file patterns, then iterates plan slices in dependency order — invoking `gemini --yolo` for each task, running the verification gate after each attempt, and retrying up to `--max-retries` times on failure. Rate-limit errors (HTTP 429, "quota exceeded") are retried on a separate budget (max 20) without consuming the main retry count. Sets `pipeline_step: implement-done` on completion.
+Headless LLM implementation loop. Reads `AGENTS.md` from the target project for the verification command and context file patterns, then iterates plan slices in dependency order — invoking `gemini --yolo` for each task, running the verification gate after each attempt, and retrying up to `--max-retries` times on failure. Rate-limit errors (HTTP 429, "quota exceeded") are retried on a separate budget (max 20) without consuming the main retry count. Sets `pipeline_step: implement-done` on completion. The `--tasks` and `--slices` flags are deprecated; use `--strategy` instead.
 
 ```bash
 ai-session start-plan <story-id>
@@ -225,8 +225,34 @@ Starts a read-only HTTP dashboard for monitoring features at `http://localhost:1
 **Detail View:**
 - The header provides direct links to the feature's story (e.g., Shortcut or JIRA) and its associated pull request on GitHub.
 - It also includes the same quick-launch actions (Finder, VSCode, Terminal) as the main view for easy access to the local development environment.
+- The action bar includes:
+  - An **Implement** split button (green) to trigger the implementation process. It is disabled when an implementation is already running or when all tasks are complete.
+  - A **Strategy** dropdown to select the implementation strategy (`task` or `slice`). The selection is persisted in `status.yaml` and is disabled while an implementation is running.
+  - **Reset** and **Clear** buttons to manage the plan.
+- Status messages are displayed to indicate when an implementation is running or when all tasks are done.
 
 On macOS, the server also exposes `/action/terminal?path=<dir>`, `/action/finder?path=<dir>`, and `/action/vscode?path=<dir>` endpoints to open a directory in the respective application.
+
+**API Endpoints:**
+- `POST /feature/{id}/implement`: Asynchronously starts the implementation process for a feature.
+  - **Parameters**: `model` (e.g., "gemini", "claude").
+  - **Behavior**: Spawns `ai-session implement` as a detached subprocess and updates the feature's status to `implement`.
+  - **Response Codes**:
+    - `200 OK`: (HTMX request) Returns the updated UI fragment.
+    - `303 See Other`: (Standard request) Redirects to the feature detail page.
+    - `400 Bad Request`: If the plan is empty or missing.
+    - `404 Not Found`: If the feature ID does not exist.
+    - `409 Conflict`: If an implementation is already running or all tasks are done.
+    - `500 Internal Server Error`: If the subprocess fails to spawn.
+- `PATCH /feature/{id}/strategy`: Updates the implementation strategy for a feature.
+  - **Parameters**: `strategy` (e.g., "task", "slice").
+  - **Behavior**: Persists the selected strategy to `status.yaml`.
+  - **Response Codes**:
+    - `204 No Content`: On success.
+    - `400 Bad Request`: If the strategy is unknown.
+    - `404 Not Found`: If the feature ID does not exist.
+    - `409 Conflict`: If an implementation is already running.
+    - `500 Internal Server Error`: If the file write fails.
 
 ## Package structure
 

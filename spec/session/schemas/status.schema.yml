@@ -1,0 +1,43 @@
+type: object
+properties:
+  mode:
+    type: string
+  repo:
+    type: string
+  branch:
+    type: string
+  work_dir:
+    type: string
+  pid:
+    type: integer
+  pipeline_step:
+    type: string
+  started_at:
+    type: string
+    format: date-time
+  updated_at:
+    type: string
+    format: date-time
+  story_url:
+    type: string
+  clone_path:
+    type: string
+  error:
+    type: string
+  pr_url:
+    type: string
+  pr_title:
+    type: string
+  strategy:
+    type: string
+    enum:
+      - task
+      - slice
+    default: task
+    description: The implementation strategy to use. 'task' runs one LLM call per task. 'slice' runs one LLM call per slice.
+required:
+  - repo
+  - branch
+  - work_dir
+  - started_at
+  - updated_at
