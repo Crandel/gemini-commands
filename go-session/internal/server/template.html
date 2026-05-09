@@ -94,10 +94,10 @@
     .slice li { margin: 0.3rem 0; }
 
   </style>
-</head>
-<body>
+  </head>
+  <body>
   <h1>ai-session dashboard</h1>
-
+  ...
   <form method="GET">
     <label for="repo">Repo:</label>
     <select id="repo" name="repo">
@@ -163,6 +163,8 @@
   </table>
 
   <footer>{{len .Features}} feature(s) shown &mdash; refresh to update</footer>
+  </body>
+  </html>
 
   {{define "feature_detail"}}
   <!DOCTYPE html>
@@ -316,6 +318,14 @@
     {{if .StoryURL}} | <a href="{{.StoryURL}}" target="_blank">Story</a>{{end}}
     {{if .PRURL}} | <a href="{{.PRURL}}" target="_blank">Pull Request</a>{{end}}
   </p>
+  {{if .PRDescription}}
+  <details open>
+    <summary>Pull Request Description</summary>
+    <div class="description-content">
+      {{.PRDescription}}
+    </div>
+  </details>
+  {{end}}
   {{if .WorkDir}}
   <p>
     <strong>Quick Launch:</strong>
@@ -332,9 +342,8 @@
     </div>
   </details>
   {{end}}
-  <div id="plan-section">
-    {{template "plan_section" .}}
-  </div>
+
+  {{template "plan_section" .}}
 
   {{if .ReviewFiles}}
   <details {{if .HasOpenFindings}}open{{end}}>
@@ -529,7 +538,7 @@
     var msgEl = document.getElementById('plan-msg');
     var es = new EventSource('/feature/{{.ID}}/events');
     es.onmessage = function(e) {
-      var ev = JSON.parse(e.data);
+      var ev = JSON.JSON.parse(e.data);
       if (ev.type === 'done' || (ev.type === 'status' && ev.step === 'plan-done')) {
         es.close();
         htmx.ajax('GET', '/feature/{{.ID}}/plan-section', {target: '#plan-section', swap: 'innerHTML'});

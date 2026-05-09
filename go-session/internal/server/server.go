@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"os"
-	"log/slog"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -68,6 +68,9 @@ type FeatureDetailData struct {
 	// Populated by the detail handler after loading findings.
 	HasOpenFindings bool
 
+	// PRDescription holds the rendered pull request description markdown.
+	PRDescription template.HTML
+
 	// PipelineStep is the current pipeline_step from status.yaml.
 	// Used to render the correct button state on page load.
 	PipelineStep    string
@@ -84,6 +87,7 @@ func isRunningStep(step string) bool {
 }
 
 // Server is the dashboard HTTP server.
+//
 //go:generate mockgen -source=server.go -destination=mock_server.go -package=server
 type Scanner interface {
 	ScanAll() ([]dashboard.FeatureState, error)
@@ -248,7 +252,6 @@ func FinderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
-
 
 func (s *Server) MakeResetHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -807,12 +810,6 @@ func (s *Server) MakeImplementHandler() http.HandlerFunc {
 			strategyVal = st.ImplementationStrategy
 		}
 
-		runner, err := llm.NewRunner(modelVal, llm.RunnerOptions{})
-		if err != nil {
-			http.Error(w, "runner error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
 		strats := implement.KnownStrategies()
 		strategy, ok := strats[strategyVal]
 		if !ok {
@@ -825,6 +822,12 @@ func (s *Server) MakeImplementHandler() http.HandlerFunc {
 			workDir, _ = os.Getwd()
 		}
 		aiSessionHome := os.Getenv("AI_SESSION_HOME")
+
+		runner, err := llm.NewRunner(modelVal, llm.RunnerOptions{WorkDir: workDir})
+		if err != nil {
+			http.Error(w, "runner error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		// Write pipeline_step before launching so the UI reflects running state immediately.
 		_ = status.Write(dir, "implement", "", "")

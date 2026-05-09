@@ -17,8 +17,11 @@ type Runner interface {
 // deadline. When the deadline is exceeded the process is killed and Run
 // returns a descriptive error that the implement retry loop injects into the
 // next attempt's prompt as context.
+// WorkDir sets the working directory for the LLM subprocess. When empty the
+// subprocess inherits the caller's working directory.
 type RunnerOptions struct {
 	Timeout time.Duration
+	WorkDir string
 }
 
 // Model selects the LLM backend.

@@ -81,10 +81,12 @@ func RunJob(featureDir string, maxRetries int, retryDelay time.Duration, logger 
 	return fmt.Errorf("job failed after %d attempts", maxRetries)
 }
 
-// runShellAndCaptureOutput executes a shell command and captures its stdout/stderr.
-func runShellAndCaptureOutput(cmdStr string) (string, error) {
+// runShellAndCaptureOutput executes a shell command in dir and captures its stdout/stderr.
+// dir must be the project working directory (same value as SliceContext.WorkDir).
+func runShellAndCaptureOutput(cmdStr, dir string) (string, error) {
 	var output bytes.Buffer
 	cmd := exec.Command("sh", "-c", cmdStr)
+	cmd.Dir = dir
 	cmd.Stdout = &output
 	cmd.Stderr = &output
 	err := cmd.Run()
@@ -214,6 +216,7 @@ func (j *sliceJob) Prompt() (string, error) {
 	promptContent = strings.ReplaceAll(promptContent, "{{changes_so_far_here}}", changesSoFar)
 	promptContent = strings.ReplaceAll(promptContent, "{{verification_command_here}}", j.ctx.VerificationCmd)
 	promptContent = strings.ReplaceAll(promptContent, "{{feature_dir_here}}", j.ctx.FeatureDir)
+	promptContent = strings.ReplaceAll(promptContent, "{{user_story_id}}", j.ctx.Story)
 	promptContent = strings.ReplaceAll(promptContent, "{{slice_id_here}}", j.ctx.Slice.ID)
 
 	if j.lastError != "" {
@@ -250,9 +253,14 @@ func (j *sliceJob) checkGates(attempt int) error {
 		return errors.New(j.lastError)
 	}
 
-	verificationOutput, verifyErr := runShellAndCaptureOutput(j.ctx.VerificationCmd)
+	verificationOutput, verifyErr := runShellAndCaptureOutput(j.ctx.VerificationCmd, j.ctx.WorkDir)
 	if verifyErr != nil {
-		j.lastError = fmt.Sprintf("verification failed: %v\nOutput:\n%s", verifyErr, verificationOutput)
+		out := verificationOutput
+		const maxOut = 2000
+		if len(out) > maxOut {
+			out = out[:maxOut] + "\n...(truncated)"
+		}
+		j.lastError = fmt.Sprintf("verification failed: %v\nOutput:\n%s", verifyErr, out)
 		appendLog(j.ctx.Logger, j.ctx.FeatureDir, fmt.Sprintf("Gate 2 failed for slice %s (attempt %d): %v", j.ctx.Slice.ID, attempt, verifyErr))
 		return errors.New(j.lastError)
 	}

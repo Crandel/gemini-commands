@@ -110,7 +110,7 @@ func (j *ReviewJob) runVerification(attempt int) error {
 		return nil
 	}
 
-	verificationOutput, verifyErr := runShellAndCaptureOutput(j.verificationCmd)
+	verificationOutput, verifyErr := runShellAndCaptureOutput(j.verificationCmd, j.featureDir)
 	if verifyErr != nil {
 		j.lastError = fmt.Sprintf("verification failed: %v\nOutput:\n%s", verifyErr, verificationOutput)
 		appendLog(j.logger, j.featureDir, fmt.Sprintf("Verification failed (attempt %d): %s", attempt, verificationOutput))

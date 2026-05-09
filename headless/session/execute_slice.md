@@ -32,6 +32,8 @@ You have full tool access.
 
 **No implicit deletions:** Never delete a file unless the current task description explicitly names it for deletion.
 
+**The plan is a guideline, not a ruleset:** If a task description doesn't make sense given the actual state of the code, or if following it would break verification with no clear fix, skip it — log why with `ai-session append-log` and move on. Shipping working, verified code takes priority over strict plan compliance.
+
 **Loop detection:** If you find yourself reverting a change you already applied, stop. You are in a loop. Run `ai-session append-log "{{feature_dir_here}}" "SLICE FAILED: loop detected — tried <X>, failed with <Y>"` and exit the slice as failed.
 
 **Instructions:**
@@ -57,51 +59,58 @@ You have full tool access.
 
     Task descriptions convey **intent**, not implementation. Any code they contain is pseudocode — a sketch to convey the approach. Always derive the actual implementation by reading the real files and writing idiomatic code. Never copy code from task descriptions verbatim.
 
-    <tasks>
-    {{tasks_here}}
-    </tasks>
+    **Per-task checklist — complete every step before moving to the next task:**
 
-4.  **Update task status and log:** After successfully completing each task:
+    After implementing or verifying each task, execute the following steps in this exact order:
 
-    a. Log what you did, why you made the choices you made, and any limitations or trade-offs:
-    ```
-    ai-session append-log "{{feature_dir_here}}" "Task <task-id>: <what was done>. Rationale: <why this approach>. Limitations/trade-offs: <any caveats, or 'none'>"
-    ```
-
-    b. Mark the task as done:
-    ```
-    ai-session update-task "{{feature_dir_here}}" "<task-id>" --status done
-    ```
-
-    Both calls are required after each task and *must* happen even when no code changes were needed (e.g. the task was already implemented). Verifying that the work is correct counts as completing the task.
-
-    Once **all tasks** in the slice are marked `done`, also mark the slice itself as done:
-
-    ```
-    ai-session update-slice "{{feature_dir_here}}" "{{slice_id_here}}" --status done
-    ```
-
-5.  **Run verification:** After *every individual file write* — not once per task, not at the end of the slice — run the verification command:
-
+    **Step A — Verify** (after every file write):
     ```bash
     {{verification_command_here}}
     ```
-    Read the full output. If verification fails, diagnose, fix, and re-run. **Maximum 3 fix attempts per file write.** After 3 failures, run:
-    ```
-    ai-session append-log "{{feature_dir_here}}" "SLICE FAILED: verification did not pass after 3 attempts on task <task-id>. Last error: <paste error>"
-    ```
-    Then output a one-line failure summary and **stop making tool calls immediately**.
+    Read the full output and **decide whether the failure is expected or unexpected**:
 
-    If at any point you encounter a problem you cannot resolve (ambiguous requirements, missing dependency, irreconcilable conflict), log it before stopping:
+    - **Expected failure** — the codebase is intentionally incomplete mid-slice. Examples: a test written before its implementation (TDD red phase), an unused private function that will be called by the next task, a stub interface with missing methods. Log why it is expected and continue to the next task:
+      ```
+      ai-session append-log "{{feature_dir_here}}" "Task <task-id>: verification failure is expected — <reason>. Will be resolved by task <next-task-id>."
+      ```
+
+    - **Unexpected failure** — a real error introduced by your change that should not be there: syntax error, wrong type, broken import, test regression unrelated to the current task. Fix it immediately and re-run verification. **Maximum 3 fix attempts.** After 3 failures:
+      ```
+      ai-session append-log "{{feature_dir_here}}" "SLICE FAILED: verification did not pass after 3 attempts on task <task-id>. Last error: <error>"
+      ```
+      Then output a one-line failure summary and **stop making tool calls immediately**.
+
+    **The final task in the slice must leave verification fully passing** — no expected failures may remain. If the last task passes, all earlier expected failures must also be resolved.
+
+    If at any point you encounter a problem you cannot resolve (ambiguous requirements, missing dependency, irreconcilable conflict):
     ```
     ai-session append-log "{{feature_dir_here}}" "BLOCKED on task <task-id>: <description of the problem and what was tried>"
     ```
 
-    Do not proceed to the next task or mark any task as `done` until verification passes.
+    **Step B — Log rationale** (once verification passes for the task):
+    ```
+    ai-session append-log "{{feature_dir_here}}" "Task <task-id>: <what was done>. Rationale: <why this approach>. Limitations/trade-offs: <any caveats, or 'none'>"
+    ```
 
-6.  **Idempotency:** Ensure your changes are idempotent. Re-applying them should not break the codebase.
+    **Step C — Mark task done** (immediately after Step B — this is mandatory even when no code changes were needed):
+    ```
+    ai-session update-task "{{feature_dir_here}}" "<task-id>" --status done
+    ```
 
-7.  **Exit when done.** Once all tasks are marked `done` and the final verification passes, output a single plain-text completion line (e.g. `Slice complete. All tasks done, verification passed.`) and **make no further tool calls**. Do not re-verify, re-read files, or re-check statuses after this point.
+    Do NOT proceed to the next task or output any completion message until Steps A, B, and C are done for the current task.
+
+    **After all tasks are done — mark the slice done:**
+    ```
+    ai-session update-slice "{{feature_dir_here}}" "{{slice_id_here}}" --status done
+    ```
+
+    <tasks>
+    {{tasks_here}}
+    </tasks>
+
+4.  **Idempotency:** Ensure your changes are idempotent. Re-applying them should not break the codebase.
+
+5.  **Exit when done.** Once all tasks are marked `done`, the slice is marked `done`, and the final verification passes, output a single plain-text completion line (e.g. `Slice complete. All tasks done, verification passed.`) and **make no further tool calls**. Do not re-verify, re-read files, or re-check statuses after this point.
 
 {{#if error_message}}
 <previous_failure_error>
