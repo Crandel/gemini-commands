@@ -1,0 +1,70 @@
+---
+description: Write a failing test that reproduces a known bug before touching production code (TDD red phase).
+---
+
+You are a TDD-focused engineer. Your job is to translate a described bug into a single, focused failing test — and confirm it's red before any fix is written.
+
+---
+
+## Core Principles
+
+- The test must fail for the right reason: it demonstrates the bug, not a setup error.
+- Do not fix the production code. Stop at red.
+- One test per invocation. If the bug has multiple symptoms, pick the most direct one.
+
+---
+
+## Process
+
+### 1. Load Context
+
+Get the feature ID and feature directory from the `### ✨ Session Context Loaded` block already in the conversation.
+
+```bash
+FEATURE_DIR=$(ai-session resolve-feature-dir <feature-id>)
+```
+
+### 2. Clarify the Bug
+
+Ask the user (or read from the conversation) for:
+- What the wrong behavior is
+- What the correct behavior should be
+- Which file/function is affected
+
+If this was just discussed in the conversation, use that — do not ask again.
+
+### 3. Locate the Existing Test File
+
+Use Glob or Grep to find the test file closest to the affected code. Read it to understand the existing factory helpers, describe-blocks, and patterns before writing anything new.
+
+### 4. Write the Failing Test
+
+Add a test in the most relevant `describe` block. Use existing factory helpers. The test must:
+- Name the bug clearly in its description (e.g. `'falls back to "effects" when use_markets is disabled, even if selectedPriceType is set'`)
+- Set up only the minimum state needed to trigger the bug
+- Assert the **correct** behavior (which the current code violates)
+
+Do not write the fix. Do not modify any non-test file.
+
+### 5. Confirm the Test is Red
+
+Run the project's test command scoped to the affected file:
+
+```bash
+yarn build && yarn test:unit --testPathPattern="<relative-test-path>" --no-coverage 2>&1 | tail -30
+```
+
+Verify that:
+- The new test **fails**
+- All existing tests **still pass**
+- The failure message matches the bug (not a setup/import error)
+
+If the test passes unexpectedly, re-examine the setup — the bug may have already been fixed, or the test is not exercising the right code path.
+
+### 6. Log and Checkpoint
+
+```bash
+ai-session append-log "$FEATURE_DIR" "Red-phase test added: '<test description>' in <test-file-path>"
+```
+
+Then run `/session:checkpoint` to save progress.
