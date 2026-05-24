@@ -104,6 +104,27 @@ ai-session submit-pr <feature-name>
 ```
 Creates a GitHub PR for the feature's branch. The PR title is `feat: <branch-name>`. The PR body is read from `pr.md`. The base branch is detected automatically. If a PR already exists for the branch, the command exits with an error. On success, the PR URL is written to `status.yaml` and the `pipeline_step` is set to `pr-submitted`.
 
+### Repository
+
+```bash
+ai-session repository add --config-json '{"repo_name":"org/repo","work_dir":"/path/to/work","is_worktree":true,"agents_path":"path/to/AGENTS.md","verify_config":{"build":"make build","test":"make test","lint":"make lint"}}'
+```
+Adds a new repository to `~/.ai-session/repositories_config.yaml`.
+- The `--config-json` flag is required and accepts a JSON string with the repository configuration.
+- `repo_name`, `work_dir`, `is_worktree`, and `agents_path` are required fields.
+- `verify_config` is optional. If provided, it must be an object with `build`, `test`, and `lint` string fields.
+- If a repository with the same `repo_name` already exists, the command will return an error.
+- If `verify_config` is absent, a warning is printed to stderr.
+
+```bash
+ai-session repository list
+```
+Lists all configured repositories in a sorted, columnar format.
+
+#### Public API
+
+- `SetRegistryPathOverride(path string)`  
+  Overrides the default path to `repositories_config.yaml`. **For test use only.**
 
 ### Plan
 
@@ -219,7 +240,7 @@ Starts a read-only HTTP dashboard for monitoring features at `http://localhost:1
 
 **Main View:**
 - **Filtering:** Supports `?repo=org/name` and `?status=running|idle|done`.
-- **Sorting:** Supports `?sort=updated|started` with `&order=asc|desc`.
+- **Sorting:** supports `?sort=updated|started` with `&order=asc|desc`.
 - **Quick-launch actions:** On macOS, each feature row displays icons to open the feature's working directory in Finder (📁), VSCode (`</>`), and the integrated terminal (⬛), provided a `work_dir` is set in its `status.yaml`.
 
 **Detail View:**
@@ -268,6 +289,7 @@ internal/
   github/               GitHub CLI interactions (PR review threads)
   log/                  log.md create and append (atomic writes)
   pr/                   pr.md create, read, and write (atomic writes)
+  repository/           repositories_config.yaml CRUD — Add, List, SetRegistryPathOverride
   review/               review*.yml CRUD — Create, Load, Append, Write, UpdateStatus,
                         ReadFindings (open-only), AllTypes, TypeName
   server/               HTTP dashboard server and embedded HTML template
@@ -278,5 +300,10 @@ internal/
 - **Atomic writes** — All file mutations write to a temp file and rename into place to prevent corruption on crash.
 - **Format-preserving YAML** — Plan updates use the `yaml.Node` API to preserve original formatting and comments.
 - **Strict plan validation** — `plan-write` rejects invalid YAML, missing required fields, non-kebab-case IDs, and unknown status values before any write occurs.
+- **Idempotent feature creation** — `create-feature` skips files that already exist.
+- **Self-documenting commands** — Every subcommand's `--help` output is sufficient to use it without reading the source.
+eature` skips files that already exist.
+- **Self-documenting commands** — Every subcommand's `--help` output is sufficient to use it without reading the source.
+rs.
 - **Idempotent feature creation** — `create-feature` skips files that already exist.
 - **Self-documenting commands** — Every subcommand's `--help` output is sufficient to use it without reading the source.
