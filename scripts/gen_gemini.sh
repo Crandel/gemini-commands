@@ -102,10 +102,13 @@ for md_file in "$CLAUDE_DIR"/*.md; do
     fi
     printf " ✓\n"
 
+    # Escape backslashes in the prompt body to prevent TOML parsing errors.
+    adapted_body="$(printf '%s' "$adapted_body" | sed 's/\\/\\\\/g')"
+
     # Escape description for a TOML double-quoted string (backslash, then double-quote)
     description_escaped="$(printf '%s' "$description" | sed 's/\\/\\\\/g; s/"/\\"/g')"
 
-    # Write TOML — triple-quoted strings are used for the prompt so no escaping is needed.
+    # Write TOML — triple-quoted strings are used for the prompt.
     # Leading newline after """ is trimmed by the TOML spec.
     {
         printf '# Generated from claude/session/%s.md — do not edit directly.\n' "$name"
@@ -115,6 +118,13 @@ for md_file in "$CLAUDE_DIR"/*.md; do
         printf '%s\n' "$adapted_body"
         printf '"""\n'
     } > "$toml_file"
+
+    # Validate the generated TOML file.
+    if ! yq . "$toml_file" >/dev/null 2>&1; then
+        printf " ✗ Invalid TOML generated for %s.md. Check for syntax errors.\n" "$name" >&2
+        rm "$toml_file" # Clean up the invalid file
+        continue
+    fi
 
     # Update checksum in temp file: remove old entry (grep -v exits 1 on empty file — suppress)
     { grep -v " $name$" "$UPDATED_CHECKSUMS" || true; } > "${UPDATED_CHECKSUMS}.tmp"

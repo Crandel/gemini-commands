@@ -65,7 +65,26 @@ You are an assistant who bootstraps feature development by delegating context ga
             Confirm without showing the content.
     ---
 
-4.  **Establish Session Context (Final Step):**
+4.  **Populate `status.yaml`:**
+    *   Use the Bash tool to gather the current git context and write it into `status.yaml`:
+        ```bash
+        FEATURE_DIR=$(ai-session resolve-feature-dir "{{feature_name}}")
+        REPO=$(git remote get-url origin | sed 's|.*github.com[:/]\(.*\)\.git|\1|;s|.*github.com[:/]\(.*\)|\1|')
+        BRANCH=$(git branch --show-current)
+        WORK_DIR=$(pwd)
+        NOW=$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")
+        yq e -i "
+          .repo = \"$REPO\" |
+          .branch = \"$BRANCH\" |
+          .work_dir = \"$WORK_DIR\" |
+          .clone_path = \"$WORK_DIR\" |
+          .story_url = \"<primary_identifier>\" |
+          .updated_at = \"$NOW\"
+        " "$FEATURE_DIR/status.yaml"
+        ```
+        Replace `<primary_identifier>` with the actual identifier (Shortcut URL or Notion URL).
+
+5.  **Establish Session Context (Final Step):**
     *   Run `ai-session load-context "{{feature_name}}"` and extract the `description.md` block.
     *   Read the content of `AGENTS.md` from the project root (fall back to `GEMINI.md` if not present).
     *   Format and display using the following Markdown structure EXACTLY:
