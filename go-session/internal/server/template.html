@@ -93,6 +93,127 @@
     .slice ul { margin: 0.5rem 0; padding-left: 1.5rem; }
     .slice li { margin: 0.3rem 0; }
 
+    .review-card-feedback { margin: 0; line-height: 1.5; font-size: 0.9rem; }
+
+    /* New Repo Modal Styles */
+    dialog {
+      border: none;
+      border-radius: 8px;
+      padding: 2rem;
+      max-width: 500px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      position: relative;
+    }
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.5);
+    }
+    dialog h2 {
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+      color: #333;
+    }
+    #new-repo-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    #new-repo-form div {
+      display: flex;
+      flex-direction: column;
+    }
+    #new-repo-form label {
+      font-weight: bold;
+      margin-bottom: 0.3rem;
+      font-size: 0.95rem;
+    }
+    #new-repo-form input[type="text"],
+    #new-repo-form input[type="checkbox"] {
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-family: monospace;
+    }
+    #new-repo-form input[type="checkbox"] {
+      width: auto;
+      align-self: flex-start;
+      margin-top: 0.5rem;
+    }
+    #new-repo-form .checkbox-container {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .form-warning {
+      color: #ff8c00; /* Orange */
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+      margin-bottom: 0;
+    }
+    .form-error {
+      color: #dc3545; /* Red */
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.8rem;
+      margin-top: 1.5rem;
+    }
+    .modal-actions button {
+      padding: 0.6rem 1.2rem;
+      font-size: 1rem;
+      border-radius: 5px;
+    }
+    .modal-actions .submit-button {
+      background-color: #0055aa;
+      color: #fff;
+      border-color: #0055aa;
+    }
+    .modal-actions .submit-button:hover {
+      background-color: #004488;
+      border-color: #004488;
+    }
+    .modal-close-button {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #888;
+    }
+    .modal-close-button:hover {
+      color: #333;
+    }
+    .collapsible-header {
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+    }
+    .collapsible-header::before {
+      content: '►';
+      margin-right: 0.5rem;
+      transition: transform 0.2s;
+    }
+    details[open] .collapsible-header::before {
+      content: '▼';
+      transform: rotate(90deg);
+    }
+    .collapsible-content {
+      padding-left: 1rem;
+    }
+    .collapsible-content div {
+      margin-bottom: 0.5rem;
+    }
+    .collapsible-content label {
+      font-weight: normal;
+    }
   </style>
   </head>
   <body>
@@ -117,8 +238,178 @@
 
     <button type="submit">Filter</button>
     {{if or .RepoFilter .StatusFilter}}<a href="/">Clear</a>{{end}}
+    <button type="button" onclick="document.getElementById('new-repo-modal').showModal()">+ New Repo</button>
   </form>
 
+  {{template "feature_table" .}}
+
+  <dialog id="new-repo-modal">
+    <button class="modal-close-button" onclick="document.getElementById('new-repo-modal').close()">✕</button>
+    <h2>New Repository</h2>
+    <form id="new-repo-form">
+      <div>
+        <label for="repo_name">Repository Name:</label>
+        <input type="text" id="repo_name" name="repo_name" placeholder="org/repo" required>
+      </div>
+      <div>
+        <label for="work_dir">Working Directory:</label>
+        <input type="text" id="work_dir" name="work_dir" placeholder="/absolute/path" required>
+      </div>
+      <div>
+        <label for="agents_path">Agents Path:</label>
+        <input type="text" id="agents_path" name="agents_path" value="AGENTS.md" required>
+      </div>
+      <div class="checkbox-container">
+        <input type="checkbox" id="is_worktree" name="is_worktree">
+        <label for="is_worktree">Is Worktree</label>
+      </div>
+
+      <details id="verify-config-details">
+        <summary class="collapsible-header">Verify Config</summary>
+        <div class="collapsible-content">
+          <div>
+            <label for="verify_build">Build Command:</label>
+            <input type="text" id="verify_build" name="verify_build" placeholder="e.g., yarn build">
+          </div>
+          <div>
+            <label for="verify_test">Test Command:</label>
+            <input type="text" id="verify_test" name="verify_test" placeholder="e.g., yarn test">
+          </div>
+          <div>
+            <label for="verify_lint">Lint Command:</label>
+            <input type="text" id="verify_lint" name="verify_lint" placeholder="e.g., yarn lint">
+          </div>
+          <p id="verify-warning" class="form-warning" style="display: none;">
+            Implement command will not work for this repository if verify commands are empty.
+          </p>
+        </div>
+      </details>
+
+      <p id="form-error" class="form-error"></p>
+
+      <div class="modal-actions">
+        <button type="button" onclick="document.getElementById('new-repo-modal').close()">Cancel</button>
+        <button type="submit" class="submit-button">Add Repository</button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer>{{len .Features}} feature(s) shown &mdash; refresh to update</footer>
+
+  <script>
+    // Close modal on backdrop click
+    const newRepoModal = document.getElementById('new-repo-modal');
+    if (newRepoModal) {
+      newRepoModal.addEventListener('click', (event) => {
+        if (event.target === newRepoModal) {
+          newRepoModal.close();
+        }
+      });
+
+      // Reset form and clear errors on modal close
+      newRepoModal.addEventListener('close', () => {
+        const form = document.getElementById('new-repo-form');
+        if (form) {
+          form.reset();
+          const formError = document.getElementById('form-error');
+          if (formError) formError.textContent = '';
+          const verifyWarning = document.getElementById('verify-warning');
+          if (verifyWarning) verifyWarning.style.display = 'none';
+          const verifyConfigDetails = document.getElementById('verify-config-details');
+          if (verifyConfigDetails) verifyConfigDetails.removeAttribute('open');
+        }
+      });
+
+      // Toggle verify warning visibility
+      const verifyBuild = document.getElementById('verify_build');
+      const verifyTest = document.getElementById('verify_test');
+      const verifyLint = document.getElementById('verify_lint');
+      const verifyWarning = document.getElementById('verify-warning');
+
+      const toggleVerifyWarning = () => {
+        if (verifyBuild.value || verifyTest.value || verifyLint.value) {
+          verifyWarning.style.display = 'none';
+        } else {
+          verifyWarning.style.display = 'block';
+        }
+      };
+
+      if (verifyBuild && verifyTest && verifyLint && verifyWarning) {
+        verifyBuild.addEventListener('input', toggleVerifyWarning);
+        verifyTest.addEventListener('input', toggleVerifyWarning);
+        verifyLint.addEventListener('input', toggleVerifyWarning);
+        // Initial check
+        toggleVerifyWarning();
+      }
+
+      // Form submission handler
+      const newRepoForm = document.getElementById('new-repo-form');
+      if (newRepoForm) {
+        newRepoForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+
+          const formError = document.getElementById('form-error');
+          if (formError) formError.textContent = '';
+
+          const formData = new FormData(newRepoForm);
+          const data = {};
+          formData.forEach((value, key) => {
+            // Handle checkbox value specifically, as unchecked checkboxes don't appear in FormData
+            if (key === 'is_worktree') {
+                data[key] = (value === 'on'); // Convert 'on' to true, otherwise false
+            } else {
+                data[key] = value;
+            }
+          });
+
+          // Handle optional verify_config fields
+          const verifyConfig = {};
+          if (data['verify_build']) verifyConfig['build'] = data['verify_build'];
+          if (data['verify_test']) verifyConfig['test'] = data['verify_test'];
+          if (data['verify_lint']) verifyConfig['lint'] = data['verify_lint'];
+
+          // Only add verify_config if at least one field is provided
+          if (Object.keys(verifyConfig).length > 0) {
+            data['verify_config'] = verifyConfig;
+          }
+
+          // Remove flat verify_config fields from top-level data
+          delete data['verify_build'];
+          delete data['verify_test'];
+          delete data['verify_lint'];
+
+          try {
+            const response = await fetch('/repository', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(data),
+            });
+
+            if (response.ok) {
+              const html = await response.text();
+              const repoTableBody = document.querySelector('[data-repo-table]');
+              if (repoTableBody) {
+                repoTableBody.innerHTML = html;
+                htmx.process(repoTableBody); // Process new HTMX content
+              }
+              newRepoModal.close();
+            } else {
+              const errorText = await response.text();
+              if (formError) formError.textContent = `Error: ${errorText}`;
+            }
+          } catch (error) {
+            if (formError) formError.textContent = `Network error: ${error.message}`;
+          }
+        });
+      }
+    }
+  </script>
+</body>
+  </html>
+
+{{define "feature_table"}}
   <table>
     <thead>
       <tr>
@@ -133,7 +424,7 @@
         <th>Last Done Task</th>
       </tr>
     </thead>
-    <tbody>
+    <tbody data-repo-table>
       {{range .Features}}
       <tr>
         <td class="actions">
@@ -161,10 +452,7 @@
       {{end}}
     </tbody>
   </table>
-
-  <footer>{{len .Features}} feature(s) shown &mdash; refresh to update</footer>
-  </body>
-  </html>
+{{end}}
 
   {{define "feature_detail"}}
   <!DOCTYPE html>

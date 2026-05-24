@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"github.com/daniel-talonone/gemini-commands/internal/dashboard"
 	"github.com/daniel-talonone/gemini-commands/internal/feature"
 	"github.com/daniel-talonone/gemini-commands/internal/plan"
+	"github.com/daniel-talonone/gemini-commands/internal/repository"
 	"github.com/daniel-talonone/gemini-commands/internal/server"
 	"github.com/daniel-talonone/gemini-commands/internal/status"
 	"github.com/stretchr/testify/assert"
@@ -479,7 +481,6 @@ func TestFeatureDetailHandler(t *testing.T) {
 	})
 }
 
-
 func TestFeatureDetailHandler_ContentRendering(t *testing.T) {
 	srv, tmpl, mockS := setupFeatureDetailHandlerTest(t)
 
@@ -573,16 +574,16 @@ func TestFeatureDetailHandler_LogLoading(t *testing.T) {
 		assertions func(t *testing.T, body string)
 	}{
 		{
-			name:       "Log with markdown content is rendered as HTML",
-			featureID:  "sc-log-markdown",
-			repo:       "org/repo",
+			name:      "Log with markdown content is rendered as HTML",
+			featureID: "sc-log-markdown",
+			repo:      "org/repo",
 			logContent: `# Log Title
 
 **Bold entry** and _italic note_
 
 - Item 1
 - Item 2`,
-			deleteLog:  false,
+			deleteLog: false,
 			assertions: func(t *testing.T, body string) {
 				// Verify log section exists
 				assert.Contains(t, body, "<summary>Log</summary>", "expected Log section summary")
@@ -612,9 +613,9 @@ func TestFeatureDetailHandler_LogLoading(t *testing.T) {
 			},
 		},
 		{
-			name:       "Complex log with code blocks renders correctly",
-			featureID:  "sc-log-code",
-			repo:       "org/repo",
+			name:      "Complex log with code blocks renders correctly",
+			featureID: "sc-log-code",
+			repo:      "org/repo",
 			logContent: `## Development Notes
 
 ` + "```go" + `
@@ -624,7 +625,7 @@ func test() {
 ` + "```" + `
 
 See the code above.`,
-			deleteLog:  false,
+			deleteLog: false,
 			assertions: func(t *testing.T, body string) {
 				assert.Contains(t, body, "<h2>Development Notes</h2>", "expected h2 heading from log")
 				assert.Contains(t, body, "<pre>", "expected pre tag for code block")
@@ -925,6 +926,181 @@ func TestFeatureDetailHandler_ValidPR(t *testing.T) {
 	assert.Contains(t, body, `<div class="pr-description-content">`, "PR description content div should be rendered")
 	assert.Contains(t, body, `<h1>PR Title</h1>`, "should render markdown title")
 	assert.Contains(t, body, `This is <strong>bold</strong> and <em>italic</em> content.`, "should render markdown content")
+}
+
+func TestListHandler_FeatureTableTemplate(t *testing.T) {
+	// Setup a mock scanner with one feature
+	mockFeature := dashboard.FeatureState{
+		StoryID:   "sc-test-feature",
+		Repo:      "org/test-repo",
+		UpdatedAt: time.Now(),
+		StartedAt: time.Now(),
+	}
+	mockS := &mockScanner{features: []dashboard.FeatureState{mockFeature}}
+
+	// Read the template file content
+	tmplContent, err := os.ReadFile("template.html")
+	require.NoError(t, err)
+
+	// Parse the template. Note: if "feature_table" is not defined, ExecuteTemplate will fail.
+	funcMap := template.FuncMap{
+		"safeURL":  func(s string) template.URL { return template.URL(s) },
+		"urlquery": func(s string) string { return url.QueryEscape(s) },
+	}
+	tmpl, err := template.New("dashboard").Funcs(funcMap).Parse(string(tmplContent))
+	require.NoError(t, err)
+
+	srv := server.New(8080, mockS)
+
+	// Test full page rendering
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	srv.MakeListHandler(tmpl).ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), mockFeature.StoryID, "full page should contain the feature ID")
+
+	// Test "feature_table" template fragment rendering
+	tableData := server.PageData{
+		Features: []dashboard.FeatureState{mockFeature},
+	}
+	tableBuf := new(strings.Builder)
+	err = tmpl.ExecuteTemplate(tableBuf, "feature_table", tableData)
+	assert.NoError(t, err, "ExecuteTemplate for 'feature_table' should succeed once the template is defined")
+	assert.Contains(t, tableBuf.String(), mockFeature.StoryID, "feature_table output should contain the feature ID")
+}
+
+func TestListHandler_NewRepoButton(t *testing.T) {
+	tmplContent, err := os.ReadFile("template.html")
+	require.NoError(t, err)
+	funcMap := template.FuncMap{
+		"safeURL":  func(s string) template.URL { return template.URL(s) },
+		"urlquery": func(s string) string { return url.QueryEscape(s) },
+	}
+	tmpl, err := template.New("dashboard").Funcs(funcMap).Parse(string(tmplContent))
+	require.NoError(t, err)
+
+	mockS := &mockScanner{features: []dashboard.FeatureState{}}
+	srv := server.New(8080, mockS)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	srv.MakeListHandler(tmpl).ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), `+ New Repo`, "should contain a '+ New Repo' button")
+}
+
+func TestListHandler_NewRepoModalExists(t *testing.T) {
+	tmplContent, err := os.ReadFile("template.html")
+	require.NoError(t, err)
+	funcMap := template.FuncMap{
+		"safeURL":  func(s string) template.URL { return template.URL(s) },
+		"urlquery": func(s string) string { return url.QueryEscape(s) },
+	}
+	tmpl, err := template.New("dashboard").Funcs(funcMap).Parse(string(tmplContent))
+	require.NoError(t, err)
+
+	mockS := &mockScanner{features: []dashboard.FeatureState{}}
+	srv := server.New(8080, mockS)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	srv.MakeListHandler(tmpl).ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), `id="new-repo-modal"`, "should contain a dialog element with id 'new-repo-modal'")
+}
+
+func TestRepositoryHandler(t *testing.T) {
+	// Setup: temp registry file and a server with a mock scanner.
+	registryFile, err := os.CreateTemp(t.TempDir(), "registry.json")
+	require.NoError(t, err)
+	registryPath := registryFile.Name()
+	require.NoError(t, registryFile.Close())
+	repository.SetRegistryPathOverride(registryPath)
+	// Clean up the override after all sub-tests are done.
+	t.Cleanup(func() {
+		repository.SetRegistryPathOverride("")
+		os.Remove(registryPath) // nolint:errcheck
+	})
+
+	mockS := &mockScanner{features: []dashboard.FeatureState{}}
+	srv := server.New(8080, mockS)
+
+	// Sub-test: Wrong Method
+	t.Run("WrongMethod", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/repository", nil)
+		rr := httptest.NewRecorder()
+		srv.MakeRepositoryHandler(nil).ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
+	})
+
+	// Sub-test: Invalid JSON payload
+	t.Run("InvalidPayload", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/repository", strings.NewReader("{bad-json"))
+		rr := httptest.NewRecorder()
+		srv.MakeRepositoryHandler(nil).ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+
+	// Sub-test: Missing required fields
+	t.Run("MissingRequiredFields", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/repository", strings.NewReader(`{"repo_name": "org/repo"}`))
+		rr := httptest.NewRecorder()
+		srv.MakeRepositoryHandler(nil).ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "work_dir is required")
+	})
+
+	// Sub-test: Duplicate Repo
+	t.Run("DuplicateRepo", func(t *testing.T) {
+		// Pre-populate registry with a repo using a real temp dir.
+		existingDir := t.TempDir()
+		isWT := false
+		cfg := repository.RepositoryConfig{RepoName: "org/existing", WorkDir: existingDir, AgentsPath: "AGENTS.md", IsWorktree: &isWT}
+		require.NoError(t, repository.Add(cfg, os.Stderr))
+
+		// Attempt to add the same repo again.
+		payload := fmt.Sprintf(`{"repo_name": "org/existing", "work_dir": "%s", "agents_path": "AGENTS.md"}`, t.TempDir())
+		req := httptest.NewRequest(http.MethodPost, "/repository", strings.NewReader(payload))
+		rr := httptest.NewRecorder()
+		srv.MakeRepositoryHandler(nil).ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "already exists")
+	})
+
+	// Sub-test: Successful Addition
+	t.Run("Success", func(t *testing.T) {
+		// The real template is needed to render the feature_table fragment.
+		tmplContent, err := os.ReadFile("template.html")
+		require.NoError(t, err)
+		funcMap := template.FuncMap{"safeURL": func(s string) template.URL { return template.URL(s) }}
+		tmpl, err := template.New("dashboard").Funcs(funcMap).Parse(string(tmplContent))
+		require.NoError(t, err)
+
+		workDir := t.TempDir()
+		payload := fmt.Sprintf(`{"repo_name": "org/new-repo", "work_dir": "%s", "agents_path": "AGENTS.md", "is_worktree": true}`, workDir)
+		req := httptest.NewRequest(http.MethodPost, "/repository", strings.NewReader(payload))
+		rr := httptest.NewRecorder()
+
+		// The scanner will be called again after the repo is added.
+		// Let's pretend a new feature magically appeared for that repo.
+		mockS.features = []dashboard.FeatureState{{StoryID: "new-feature", Repo: "org/new-repo"}}
+
+		srv.MakeRepositoryHandler(tmpl).ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusOK, rr.Code, "Response: %s", rr.Body.String())
+		assert.Contains(t, rr.Body.String(), "<tbody", "should return a table body fragment")
+		assert.Contains(t, rr.Body.String(), "new-feature", "table should contain the newly scanned feature")
+
+		// Verify the registry file was actually updated.
+		reg, err := repository.List()
+		require.NoError(t, err)
+		require.NotNil(t, reg["org/new-repo"].IsWorktree)
+		assert.True(t, *reg["org/new-repo"].IsWorktree)
+	})
 }
 
 func TestResetButtonRendering_WithPlan(t *testing.T) {

@@ -25,6 +25,7 @@ import (
 	"github.com/daniel-talonone/gemini-commands/internal/log"
 	"github.com/daniel-talonone/gemini-commands/internal/plan"
 	"github.com/daniel-talonone/gemini-commands/internal/review"
+	"github.com/daniel-talonone/gemini-commands/internal/repository"
 	"github.com/daniel-talonone/gemini-commands/internal/status"
 )
 
@@ -167,6 +168,7 @@ func (s *Server) Start() error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.MakeListHandler(tmpl))
+	mux.HandleFunc("/repository", s.MakeRepositoryHandler(tmpl))
 	mux.HandleFunc("/feature/", func(w http.ResponseWriter, r *http.Request) {
 		pathSuffix := strings.TrimPrefix(r.URL.Path, "/feature/")
 		if strings.HasSuffix(pathSuffix, "/reset") && r.Method == http.MethodPost {
@@ -1010,6 +1012,55 @@ func (s *Server) MakeListHandler(tmpl *template.Template) http.HandlerFunc {
 		// Buffer template output — prevents partial responses on error.
 		var buf bytes.Buffer
 		if err := tmpl.Execute(&buf, data); err != nil {
+			http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(buf.Bytes())
+	}
+}
+
+func (s *Server) MakeRepositoryHandler(tmpl *template.Template) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var cfg repository.RepositoryConfig
+		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+			http.Error(w, "Invalid JSON payload: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// If IsWorktree is nil, default to false.
+		if cfg.IsWorktree == nil {
+			isWorktree := false
+			cfg.IsWorktree = &isWorktree
+		}
+
+		// If all VerifyConfig fields are empty, set VerifyConfig to nil.
+		if cfg.VerifyConfig != nil &&
+			cfg.VerifyConfig.Build == "" &&
+			cfg.VerifyConfig.Test == "" &&
+			cfg.VerifyConfig.Lint == "" {
+			cfg.VerifyConfig = nil
+		}
+
+		if err := repository.Add(cfg, os.Stderr); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		features, err := s.ScanAllFunc()
+		if err != nil {
+			http.Error(w, "scan error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		data := PageData{Features: features}
+		var buf bytes.Buffer
+		if err := tmpl.ExecuteTemplate(&buf, "feature_table", data); err != nil {
 			http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
