@@ -37,7 +37,14 @@ The user has provided a high-level goal: `$ARGUMENTS`.
 5.  **Create Artifacts (Upon Approval):**
     *   Once the user approves the draft:
         1.  Generate a suitable directory name from the user's initial goal (e.g., "Create user profile page" -> `create-user-profile-page`).
-        2.  Use the Bash tool to scaffold the directory: `ai-session create-feature "create-user-profile-page"`. Always use the bare `ai-session` command — never construct an absolute path.
+        2.  Use the Bash tool to scaffold the directory, passing git context explicitly so `status.yaml` is populated correctly even when the remote uses an `ssh://` URL:
+            ```bash
+            REPO=$(git remote get-url origin | sed 's|.*github\.com[:/]\(.*\)\.git|\1|')
+            BRANCH=$(git branch --show-current)
+            WORK_DIR=$(git rev-parse --show-toplevel)
+            ai-session create-feature "<directory-name>" --repo "$REPO" --branch "$BRANCH" --work-dir "$WORK_DIR"
+            ```
+            Always use the bare `ai-session` command — never construct an absolute path.
         3.  Use the Bash tool to save `description.md` with the approved draft content:
             ```bash
             ai-session description create "create-user-profile-page" <<'EOF'
