@@ -1058,6 +1058,10 @@ func (s *Server) MakeRepositoryHandler(tmpl *template.Template) http.HandlerFunc
 			return
 		}
 
+		if tmpl == nil {
+			http.Error(w, "template not initialised", http.StatusInternalServerError)
+			return
+		}
 		data := PageData{Features: features}
 		var buf bytes.Buffer
 		if err := tmpl.ExecuteTemplate(&buf, "feature_table", data); err != nil {

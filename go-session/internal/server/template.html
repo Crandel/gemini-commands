@@ -93,8 +93,6 @@
     .slice ul { margin: 0.5rem 0; padding-left: 1.5rem; }
     .slice li { margin: 0.3rem 0; }
 
-    .review-card-feedback { margin: 0; line-height: 1.5; font-size: 0.9rem; }
-
     /* New Repo Modal Styles */
     dialog {
       border: none;
@@ -241,7 +239,7 @@
     <button type="button" onclick="document.getElementById('new-repo-modal').showModal()">+ New Repo</button>
   </form>
 
-  {{template "feature_table" .}}
+  <div id="repo-table-wrapper">{{template "feature_table" .}}</div>
 
   <dialog id="new-repo-modal">
     <button class="modal-close-button" onclick="document.getElementById('new-repo-modal').close()">✕</button>
@@ -279,7 +277,7 @@
             <label for="verify_lint">Lint Command:</label>
             <input type="text" id="verify_lint" name="verify_lint" placeholder="e.g., yarn lint">
           </div>
-          <p id="verify-warning" class="form-warning" style="display: none;">
+          <p id="verify-warning" class="form-warning">
             Implement command will not work for this repository if verify commands are empty.
           </p>
         </div>
@@ -338,8 +336,6 @@
         verifyBuild.addEventListener('input', toggleVerifyWarning);
         verifyTest.addEventListener('input', toggleVerifyWarning);
         verifyLint.addEventListener('input', toggleVerifyWarning);
-        // Initial check
-        toggleVerifyWarning();
       }
 
       // Form submission handler
@@ -353,14 +349,9 @@
 
           const formData = new FormData(newRepoForm);
           const data = {};
-          formData.forEach((value, key) => {
-            // Handle checkbox value specifically, as unchecked checkboxes don't appear in FormData
-            if (key === 'is_worktree') {
-                data[key] = (value === 'on'); // Convert 'on' to true, otherwise false
-            } else {
-                data[key] = value;
-            }
-          });
+          formData.forEach((value, key) => { data[key] = value; });
+          // Unchecked checkboxes are absent from FormData; set explicitly.
+          data['is_worktree'] = formData.has('is_worktree');
 
           // Handle optional verify_config fields
           const verifyConfig = {};
@@ -389,10 +380,9 @@
 
             if (response.ok) {
               const html = await response.text();
-              const repoTableBody = document.querySelector('[data-repo-table]');
-              if (repoTableBody) {
-                repoTableBody.innerHTML = html;
-                htmx.process(repoTableBody); // Process new HTMX content
+              const wrapper = document.getElementById('repo-table-wrapper');
+              if (wrapper) {
+                wrapper.innerHTML = html;
               }
               newRepoModal.close();
             } else {
