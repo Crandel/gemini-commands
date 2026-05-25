@@ -18,6 +18,7 @@ import (
 	"github.com/daniel-talonone/gemini-commands/internal/llm"
 	"github.com/daniel-talonone/gemini-commands/internal/log"
 	"github.com/daniel-talonone/gemini-commands/internal/plan"
+	"github.com/daniel-talonone/gemini-commands/internal/repository"
 	"github.com/daniel-talonone/gemini-commands/internal/status"
 	"gopkg.in/yaml.v3"
 )
@@ -97,8 +98,8 @@ func runShellAndCaptureOutput(cmdStr, dir string) (string, error) {
 // Use for O(1) validation and direct strategy instantiation.
 func KnownStrategies() map[string]Strategy {
 	return map[string]Strategy{
-		"task":  &PerTaskStrategy{},
 		"slice": &PerSliceStrategy{},
+		"task":  &PerTaskStrategy{},
 	}
 }
 
@@ -126,6 +127,7 @@ type SliceContext struct {
 	Architecture    string
 	Slice           plan.Slice
 	VerificationCmd string
+	VerifyConfig    *repository.VerifyConfig
 	MaxRetries      int
 	RetryDelay      time.Duration
 	ContextPattern  []string
@@ -154,7 +156,7 @@ func (s *PerTaskStrategy) ExecuteSlice(ctx SliceContext) error {
 			return fmt.Errorf("updating task %s to in-progress: %w", t.ID, err)
 		}
 
-		if err := executeTaskWithRetry(ctx.Logger, ctx.FeatureDir, ctx.AISessionHome, ctx.WorkDir, ctx.Story, ctx.Architecture, ctx.Slice.Description, t.Task, ctx.VerificationCmd, ctx.MaxRetries, ctx.RetryDelay, ctx.ContextPattern, ctx.Runner); err != nil {
+		if err := executeTaskWithRetry(ctx.Logger, ctx.FeatureDir, ctx.AISessionHome, ctx.WorkDir, ctx.Story, ctx.Architecture, ctx.Slice.Description, t.Task, ctx.VerificationCmd, ctx.VerifyConfig, ctx.MaxRetries, ctx.RetryDelay, ctx.ContextPattern, ctx.Runner); err != nil {
 			appendLog(ctx.Logger, ctx.FeatureDir, fmt.Sprintf("Task %s FAILED after all retries: %v", t.ID, err))
 			ctx.Logger.Error("Task failed", "task", t.ID, "error", err)
 			return fmt.Errorf("task %s in slice %s failed: %w", t.ID, ctx.Slice.ID, err)
@@ -253,14 +255,24 @@ func (j *sliceJob) checkGates(attempt int) error {
 		return errors.New(j.lastError)
 	}
 
-	verificationOutput, verifyErr := runShellAndCaptureOutput(j.ctx.VerificationCmd, j.ctx.WorkDir)
-	if verifyErr != nil {
-		out := verificationOutput
-		const maxOut = 2000
-		if len(out) > maxOut {
-			out = out[:maxOut] + "\n...(truncated)"
+	var verifyErr error
+	if j.ctx.VerifyConfig != nil {
+		verifyErr = RunVerify(j.ctx.WorkDir, j.ctx.VerifyConfig)
+	} else {
+		var out string
+		out, verifyErr = runShellAndCaptureOutput(j.ctx.VerificationCmd, j.ctx.WorkDir)
+		if verifyErr != nil {
+			const maxOut = 2000
+			if len(out) > maxOut {
+				out = out[:maxOut] + "\n...(truncated)"
+			}
+			j.lastError = fmt.Sprintf("verification failed: %v\nOutput:\n%s", verifyErr, out)
 		}
-		j.lastError = fmt.Sprintf("verification failed: %v\nOutput:\n%s", verifyErr, out)
+	}
+	if verifyErr != nil {
+		if j.lastError == "" {
+			j.lastError = verifyErr.Error()
+		}
 		appendLog(j.ctx.Logger, j.ctx.FeatureDir, fmt.Sprintf("Gate 2 failed for slice %s (attempt %d): %v", j.ctx.Slice.ID, attempt, verifyErr))
 		return errors.New(j.lastError)
 	}
@@ -347,23 +359,54 @@ func Run(logger *slog.Logger, featureID, featureDir, workDir, aiSessionHome stri
 	appendLog(logger, featureDir, fmt.Sprintf("--- Starting implementation orchestration for feature: %s ---", featureID))
 	logger.Info("Starting implementation orchestration", "feature_id", featureID)
 
-	// Extract verification command from the project's AGENTS.md.
-	verificationCmd, err := ExtractVerificationCommand(workDir)
+	// Load status to get repo name, then look up repo config.
+	st, err := status.LoadStatus(featureDir)
 	if err != nil {
-		return fmt.Errorf("extracting verification command: %w", err)
+		return fmt.Errorf("loading status: %w", err)
+	}
+
+	var repoConfig *repository.RepositoryConfig
+	if st.Repo != "" {
+		repoConfig, err = repository.Get(st.Repo)
+		if err != nil {
+			return fmt.Errorf("looking up repository config: %w", err)
+		}
+	}
+
+	// Resolve the AGENTS.md file path (prefer repo config if available).
+	agentsPath := ResolveAgentsPath(workDir, repoConfig)
+
+	// Resolve verification command and config.
+	var verificationCmd string
+	var verifyConfig *repository.VerifyConfig
+	if repoConfig != nil && repoConfig.VerifyConfig != nil {
+		verifyConfig = repoConfig.VerifyConfig
+		verificationCmd = FormatVerificationCommands(verifyConfig)
+	} else {
+		var err2 error
+		verificationCmd, err2 = ExtractVerificationCommand(agentsPath)
+		if err2 != nil {
+			return fmt.Errorf("extracting verification command: %w", err2)
+		}
 	}
 
 	// Optional source-file filter for the codebase context diff (see AGENTS.md
 	// "## Context files" section). Falls back to defaultContextExcludes if absent.
-	contextPattern := extractContextPattern(workDir)
+	contextPattern := ExtractContextPattern(agentsPath)
 	appendLog(logger, featureDir, fmt.Sprintf("Using verification command: %s", verificationCmd))
 	logger.Info("Using verification command", "command", verificationCmd)
 
 	// Initial verification gate — codebase must be passing before we start.
 	appendLog(logger, featureDir, "Running initial verification gate...")
 	logger.Info("Running initial verification gate")
-	if err := runShell(verificationCmd, workDir); err != nil {
-		msg := fmt.Sprintf("Initial verification failed — codebase must be in a passing state to begin: %v", err)
+	var verifyErr error
+	if verifyConfig != nil {
+		verifyErr = RunVerify(workDir, verifyConfig)
+	} else {
+		verifyErr = runShell(verificationCmd, workDir)
+	}
+	if verifyErr != nil {
+		msg := fmt.Sprintf("Initial verification failed — codebase must be in a passing state to begin: %v", verifyErr)
 		appendLog(logger, featureDir, msg)
 		return errors.New(msg)
 	}
@@ -421,6 +464,7 @@ func Run(logger *slog.Logger, featureID, featureDir, workDir, aiSessionHome stri
 				Story:           storyDescription,
 				Architecture:    architectureDescription,
 				VerificationCmd: verificationCmd,
+				VerifyConfig:    verifyConfig,
 				MaxRetries:      maxRetries,
 				RetryDelay:      retryDelay,
 				ContextPattern:  contextPattern,
@@ -468,11 +512,12 @@ func Run(logger *slog.Logger, featureID, featureDir, workDir, aiSessionHome stri
 	return nil
 }
 
-// extractContextPattern reads the optional "## Context files" section
-// from AGENTS.md and returns the space-separated glob list. Returns nil when the section
-// is absent so callers can fall back to defaultContextExcludes.
-func extractContextPattern(dir string) []string {
-	content, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+// ExtractContextPattern reads the optional "## Context files" section
+// from the specified AGENTS.md file and returns the space-separated glob list.
+// Returns nil when the section is absent or the file cannot be read, so callers
+// can fall back to defaultContextExcludes.
+func ExtractContextPattern(filePath string) []string {
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil
 	}
@@ -579,7 +624,7 @@ func isRateLimitError(output string) bool {
 //
 // retryDelay is applied before each retry to avoid LLM rate-limit errors that
 // otherwise cause immediate failure on the following attempt.
-func executeTaskWithRetry(logger *slog.Logger, featureDir, aiSessionHome, workDir, storyDescription, architectureDescription, sliceDescription, taskDescription, verificationCmd string, maxRetries int, retryDelay time.Duration, contextPattern []string, runner llm.Runner) error {
+func executeTaskWithRetry(logger *slog.Logger, featureDir, aiSessionHome, workDir, storyDescription, architectureDescription, sliceDescription, taskDescription, verificationCmd string, verifyConfig *repository.VerifyConfig, maxRetries int, retryDelay time.Duration, contextPattern []string, runner llm.Runner) error {
 	promptPath := filepath.Join(aiSessionHome, "headless", "session", "execute_task.md")
 
 	// Read prompt template once; it does not change between retries.
@@ -638,12 +683,22 @@ func executeTaskWithRetry(logger *slog.Logger, featureDir, aiSessionHome, workDi
 
 		// Always run verification — file changes may have landed on disk even when
 		// Gemini exited non-zero (e.g. due to a rate-limit or transient API error).
-		var verificationOutput bytes.Buffer
-		verifyCmd := exec.Command("sh", "-c", verificationCmd)
-		verifyCmd.Dir = workDir
-		verifyCmd.Stdout = &verificationOutput
-		verifyCmd.Stderr = &verificationOutput
-		verifyErr := verifyCmd.Run()
+		var verifyErr error
+		var verificationOutputStr string
+		if verifyConfig != nil {
+			verifyErr = RunVerify(workDir, verifyConfig)
+			if verifyErr != nil {
+				verificationOutputStr = verifyErr.Error()
+			}
+		} else {
+			var verificationOutput bytes.Buffer
+			verifyCmd := exec.Command("sh", "-c", verificationCmd)
+			verifyCmd.Dir = workDir
+			verifyCmd.Stdout = &verificationOutput
+			verifyCmd.Stderr = &verificationOutput
+			verifyErr = verifyCmd.Run()
+			verificationOutputStr = verificationOutput.String()
+		}
 
 		if verifyErr == nil {
 			appendLog(logger, featureDir, fmt.Sprintf("Verification passed (attempt %d).", attempt))
@@ -668,10 +723,10 @@ func executeTaskWithRetry(logger *slog.Logger, featureDir, aiSessionHome, workDi
 		if geminiErr != nil {
 			errParts = append(errParts, geminiErr.Error())
 		}
-		errParts = append(errParts, verificationOutput.String())
+		errParts = append(errParts, verificationOutputStr)
 		lastError = errors.New(strings.Join(errParts, "\n"))
 
-		appendLog(logger, featureDir, fmt.Sprintf("Verification failed (attempt %d): %s", attempt, verificationOutput.String()))
+		appendLog(logger, featureDir, fmt.Sprintf("Verification failed (attempt %d): %s", attempt, verificationOutputStr))
 		logger.Error("Verification failed", "attempt", attempt)
 
 		if attempt == maxRetries {
@@ -703,10 +758,10 @@ func depsMet(p plan.Plan, deps []string) bool {
 	return true
 }
 
-// extractVerificationCommand reads AGENTS.md from dir and extracts the verification
-// command from a "## Verification" section.
-func ExtractVerificationCommand(dir string) (string, error) {
-	content, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+// ExtractVerificationCommand reads AGENTS.md from the specified file path and extracts
+// the verification command from a "## Verification" section.
+func ExtractVerificationCommand(filePath string) (string, error) {
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("reading AGENTS.md: %w", err)
 	}
@@ -724,4 +779,54 @@ func runShell(shellCmd, dir string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// ResolveAgentsPath returns the path to AGENTS.md to use for the given workDir
+// and optional repoConfig. It prefers repoConfig.AgentsPath if present and the
+// file exists; otherwise falls back to workDir/AGENTS.md.
+func ResolveAgentsPath(workDir string, repoConfig *repository.RepositoryConfig) string {
+	if repoConfig != nil && repoConfig.AgentsPath != "" {
+		if _, err := os.Stat(repoConfig.AgentsPath); err == nil {
+			return repoConfig.AgentsPath
+		}
+	}
+	return filepath.Join(workDir, "AGENTS.md")
+}
+
+// FormatVerificationCommands formats verification commands for display in prompts.
+// Formats as labeled multi-line:
+//
+//	Build: <build_cmd>
+//	Test: <test_cmd>
+//	Lint: <lint_cmd>
+func FormatVerificationCommands(verifyConfig *repository.VerifyConfig) string {
+	if verifyConfig == nil {
+		return ""
+	}
+	return fmt.Sprintf("Build: %s\nTest: %s\nLint: %s", verifyConfig.Build, verifyConfig.Test, verifyConfig.Lint)
+}
+
+// RunVerify executes the build, test, and lint commands sequentially, capturing output.
+// If any step fails, it returns an error with the step name and its output.
+func RunVerify(workDir string, verify *repository.VerifyConfig) error {
+	if verify == nil {
+		return fmt.Errorf("verify config is nil")
+	}
+
+	steps := []struct {
+		name string
+		cmd  string
+	}{
+		{"Build", verify.Build},
+		{"Test", verify.Test},
+		{"Lint", verify.Lint},
+	}
+
+	for _, step := range steps {
+		output, err := runShellAndCaptureOutput(step.cmd, workDir)
+		if err != nil {
+			return fmt.Errorf("%s failed: %w\nOutput:\n%s", step.name, err, output)
+		}
+	}
+	return nil
 }

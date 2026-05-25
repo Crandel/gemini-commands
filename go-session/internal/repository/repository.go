@@ -130,3 +130,15 @@ func List() (map[string]RepositoryConfig, error) {
 	}
 	return load(p)
 }
+
+func Get(repoName string) (*RepositoryConfig, error) {
+	registry, err := List()
+	if err != nil {
+		return nil, err
+	}
+	config, exists := registry[repoName]
+	if !exists {
+		return nil, nil
+	}
+	return &config, nil
+}

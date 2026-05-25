@@ -10,6 +10,7 @@ test:
 	go test ./...
 
 lint:
+	gofmt -w . && \
 	golangci-lint run ./...
 
 prcm: build test lint
