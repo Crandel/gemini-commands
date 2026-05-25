@@ -74,18 +74,28 @@ The feature identifier is: <story-id>
    }
    ```
 
-   **STRICT RULE — no standalone test tasks:**
-   Do NOT create a slice or task whose sole purpose is writing tests. Tests must always
-   be part of the same task as the code they verify. A task that adds a new function,
-   type, or file must include the corresponding tests in that same task. Never place
-   tests in a later slice or task than the implementation they cover.
+   **STRICT RULE — TDD ordering within each slice:**
+   Every slice that introduces new behavior must follow this exact task order:
+   1. **Test task first (red phase):** write the failing tests that define the expected
+      behavior. Tests must compile — define minimal type stubs or interfaces if needed —
+      but must NOT pass yet. Do not implement any real logic in this task.
+   2. **Implementation task(s) second (green phase):** write the production code that
+      makes the tests pass.
+
+   Never place implementation before its tests within a slice. Never create a slice
+   whose tasks are tests only (every test task must be followed by at least one
+   implementation task in the same slice). Slices that are purely mechanical (e.g.
+   documentation updates, renaming) with no testable behavior are exempt.
 
    **Slice sizing:** aim for 2–4 tasks per slice. More than 5 tasks in a slice is a
    signal to split.
 
-   **Verification awareness:** a slice is fully valid when (a) the project compiles,
-   (b) all existing tests pass, and (c) any new tests added in that slice also pass.
-   Plan task order accordingly — tests must never precede the code they compile against.
+   **Verification awareness:** validation runs after every task. The expected outcome
+   differs by task type:
+   - After a **test task**: build and lint must pass; the new tests are expected to fail
+     (red phase). A failing test is not a verification error — a compilation error is.
+   - After an **implementation task**: build, lint, and all tests must pass (green phase).
+   Plan accordingly — test tasks must produce compilable code even if tests fail.
 
 8. **Save Files:**
    - We will use variable `$FEATURE_DIR` from the first step.
