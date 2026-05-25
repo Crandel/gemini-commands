@@ -334,11 +334,11 @@ func TestGet(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
-		name            string
-		setup           func(t *testing.T)
-		repoName        string
-		expectedConfig  *RepositoryConfig
-		expectedErr     bool
+		name           string
+		setup          func(t *testing.T)
+		repoName       string
+		expectedConfig *RepositoryConfig
+		expectedErr    bool
 	}{
 		{
 			name: "Get existing repo with verify_config",
