@@ -53,8 +53,8 @@ func AppendLog(featureDir, message string) error {
 	tmpName := tmp.Name()
 
 	if _, err := tmp.Write(updated); err != nil {
-		tmp.Close()           //nolint:errcheck
-		os.Remove(tmpName)    //nolint:errcheck
+		tmp.Close()        //nolint:errcheck
+		os.Remove(tmpName) //nolint:errcheck
 		return fmt.Errorf("failed to write temp log file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {

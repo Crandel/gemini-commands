@@ -50,7 +50,7 @@ The command will fail if the description.md file already exists.`,
 			return fmt.Errorf("failed to stat stdin: %w", err)
 		}
 
-		hasPipe := (info.Mode()&os.ModeCharDevice) == 0
+		hasPipe := (info.Mode() & os.ModeCharDevice) == 0
 		hasContentArg := len(args) == 2
 
 		if hasPipe && hasContentArg {

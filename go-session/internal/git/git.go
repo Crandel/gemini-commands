@@ -84,8 +84,8 @@ var DefaultBranchImpl = func() string {
 // They complement .gitignore (via --exclude-standard) for directories that may not
 // be ignored in every project.
 var untrackedExcludes = []string{
-	":(exclude)vendor",        // Go modules vendor dir
-	":(exclude)node_modules",  // JS/TS dependencies
+	":(exclude)vendor",       // Go modules vendor dir
+	":(exclude)node_modules", // JS/TS dependencies
 }
 
 // appendUntracked returns a unified diff for every untracked file (files not yet

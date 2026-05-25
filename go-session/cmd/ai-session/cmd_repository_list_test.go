@@ -35,10 +35,10 @@ func TestRepositoryListCmd(t *testing.T) {
 
 		// Add a repository to test the list output
 		repo1 := repository.RepositoryConfig{
-			WorkDir:    tmpDir,
-			RepoName:   "org/repoA",
-			IsWorktree: boolPtr(false),
-			AgentsPath: "/path/to/agentsA",
+			WorkDir:      tmpDir,
+			RepoName:     "org/repoA",
+			IsWorktree:   boolPtr(false),
+			AgentsPath:   "/path/to/agentsA",
 			VerifyConfig: &repository.VerifyConfig{Build: "buildA", Test: "testA", Lint: "lintA"},
 		}
 		err := repository.Add(repo1, io.Discard)

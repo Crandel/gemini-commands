@@ -119,8 +119,6 @@ questions:
 	}
 }
 
-
-
 func TestLoadQuestions(t *testing.T) {
 	t.Run("returns content as string when questions.yml exists", func(t *testing.T) {
 		tempDir := t.TempDir()

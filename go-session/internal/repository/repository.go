@@ -18,9 +18,9 @@ func SetRegistryPathOverride(path string) {
 }
 
 type VerifyConfig struct {
-    Build string `yaml:"build" json:"build"`
-    Test  string `yaml:"test"  json:"test"`
-    Lint  string `yaml:"lint"  json:"lint"`
+	Build string `yaml:"build" json:"build"`
+	Test  string `yaml:"test"  json:"test"`
+	Lint  string `yaml:"lint"  json:"lint"`
 }
 
 type RepositoryConfig struct {
@@ -32,51 +32,51 @@ type RepositoryConfig struct {
 }
 
 func registryPath() (string, error) {
-    if _registryPathOverride != "" {
-        return _registryPathOverride, nil
-    }
-    base, err := feature.FeaturesDir()
-    if err != nil {
-        return "", err
-    }
-    return filepath.Join(base, "repositories_config.yaml"), nil
+	if _registryPathOverride != "" {
+		return _registryPathOverride, nil
+	}
+	base, err := feature.FeaturesDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, "repositories_config.yaml"), nil
 }
 
 func load(path string) (map[string]RepositoryConfig, error) {
-    data, err := os.ReadFile(path)
-    if err != nil {
-        if os.IsNotExist(err) {
-            return make(map[string]RepositoryConfig), nil
-        }
-        return nil, fmt.Errorf("reading repositories_config.yaml: %w", err)
-    }
-    var registry map[string]RepositoryConfig
-    if err := yaml.Unmarshal(data, &registry); err != nil {
-        return nil, fmt.Errorf("unmarshaling repositories_config.yaml: %w", err)
-    }
-    if registry == nil {
-        return make(map[string]RepositoryConfig), nil
-    }
-    return registry, nil
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return make(map[string]RepositoryConfig), nil
+		}
+		return nil, fmt.Errorf("reading repositories_config.yaml: %w", err)
+	}
+	var registry map[string]RepositoryConfig
+	if err := yaml.Unmarshal(data, &registry); err != nil {
+		return nil, fmt.Errorf("unmarshaling repositories_config.yaml: %w", err)
+	}
+	if registry == nil {
+		return make(map[string]RepositoryConfig), nil
+	}
+	return registry, nil
 }
 
 func save(path string, registry map[string]RepositoryConfig) error {
-    if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-        return fmt.Errorf("creating features dir: %w", err)
-    }
-    data, err := yaml.Marshal(registry)
-    if err != nil {
-        return fmt.Errorf("marshaling repositories_config.yaml: %w", err)
-    }
-    tmp := path + ".tmp"
-    if err := os.WriteFile(tmp, data, 0644); err != nil {
-        return fmt.Errorf("writing repositories_config.yaml.tmp: %w", err)
-    }
-    if err := os.Rename(tmp, path); err != nil {
-        os.Remove(tmp) //nolint:errcheck
-        return fmt.Errorf("renaming repositories_config.yaml.tmp: %w", err)
-    }
-    return nil
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("creating features dir: %w", err)
+	}
+	data, err := yaml.Marshal(registry)
+	if err != nil {
+		return fmt.Errorf("marshaling repositories_config.yaml: %w", err)
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		return fmt.Errorf("writing repositories_config.yaml.tmp: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp) //nolint:errcheck
+		return fmt.Errorf("renaming repositories_config.yaml.tmp: %w", err)
+	}
+	return nil
 }
 
 func Add(cfg RepositoryConfig, stderr io.Writer) error {

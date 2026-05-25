@@ -7,14 +7,14 @@ import (
 
 // FeatureStatus is parsed directly from status.yaml.
 type FeatureStatus struct {
-	Mode         string `yaml:"mode"`
-	Repo         string `yaml:"repo"`
-	Branch       string `yaml:"branch"`
-	WorkDir      string `yaml:"work_dir"`
-	PID          int    `yaml:"pid"`
-	PipelineStep string `yaml:"pipeline_step"`
-	StartedAt    string `yaml:"started_at"`
-	UpdatedAt    string `yaml:"updated_at"`
+	Mode                   string `yaml:"mode"`
+	Repo                   string `yaml:"repo"`
+	Branch                 string `yaml:"branch"`
+	WorkDir                string `yaml:"work_dir"`
+	PID                    int    `yaml:"pid"`
+	PipelineStep           string `yaml:"pipeline_step"`
+	StartedAt              string `yaml:"started_at"`
+	UpdatedAt              string `yaml:"updated_at"`
 	ImplementationStrategy string `yaml:"strategy"`
 }
 
@@ -32,21 +32,21 @@ type PlanSlice struct {
 
 // FeatureState is the derived, template-ready view of one feature.
 type FeatureState struct {
-	StoryID            string
-	Dir                string // absolute path to the feature directory on disk
-	Repo               string // org/repo — from status.yaml or derived from dir path
-	Mode               string
-	WorkDir            string // absolute path to repo root on disk, from status.yaml
-	PipelineStep       string
-	IsRunning          bool
-	LastDoneTask       string    // ID of last done task in document order
-	AllDone            bool      // true if every task in plan.yml is "done"
+	StoryID                string
+	Dir                    string // absolute path to the feature directory on disk
+	Repo                   string // org/repo — from status.yaml or derived from dir path
+	Mode                   string
+	WorkDir                string // absolute path to repo root on disk, from status.yaml
+	PipelineStep           string
+	IsRunning              bool
+	LastDoneTask           string // ID of last done task in document order
+	AllDone                bool   // true if every task in plan.yml is "done"
 	HasStatus              bool   // false if status.yaml was absent
 	ImplementationStrategy string
-	StartedAt          time.Time // Changed type
-	UpdatedAt          time.Time // Changed type
-	FormattedStartedAt string    // New field
-	FormattedUpdatedAt string    // New field
+	StartedAt              time.Time // Changed type
+	UpdatedAt              time.Time // Changed type
+	FormattedStartedAt     string    // New field
+	FormattedUpdatedAt     string    // New field
 }
 
 // DeriveState computes a FeatureState from parsed inputs.

@@ -19,13 +19,13 @@ import (
 
 	"github.com/daniel-talonone/gemini-commands/internal/dashboard"
 	"github.com/daniel-talonone/gemini-commands/internal/description"
-	"github.com/daniel-talonone/gemini-commands/internal/pr"
 	"github.com/daniel-talonone/gemini-commands/internal/implement"
 	"github.com/daniel-talonone/gemini-commands/internal/llm"
 	"github.com/daniel-talonone/gemini-commands/internal/log"
 	"github.com/daniel-talonone/gemini-commands/internal/plan"
-	"github.com/daniel-talonone/gemini-commands/internal/review"
+	"github.com/daniel-talonone/gemini-commands/internal/pr"
 	"github.com/daniel-talonone/gemini-commands/internal/repository"
+	"github.com/daniel-talonone/gemini-commands/internal/review"
 	"github.com/daniel-talonone/gemini-commands/internal/status"
 )
 

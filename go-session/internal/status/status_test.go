@@ -124,11 +124,11 @@ func TestWritePRURL(t *testing.T) {
 
 	// Create an initial status.yaml file
 	initialStatus := Status{
-		Repo:        "test/repo",
-		Branch:      "main",
-		WorkDir:     "/path/to/work",
-		StartedAt:   time.Now().Add(-1 * time.Hour).Format(time.RFC3339), // Format time for YAML
-		UpdatedAt:   time.Now().Add(-1 * time.Hour).Format(time.RFC3339), // Format time for YAML
+		Repo:         "test/repo",
+		Branch:       "main",
+		WorkDir:      "/path/to/work",
+		StartedAt:    time.Now().Add(-1 * time.Hour).Format(time.RFC3339), // Format time for YAML
+		UpdatedAt:    time.Now().Add(-1 * time.Hour).Format(time.RFC3339), // Format time for YAML
 		PipelineStep: "plan-done",
 	}
 	initialData, err := yaml.Marshal(&initialStatus)
@@ -156,16 +156,16 @@ func TestWritePRURL(t *testing.T) {
 	// Assert the PRURL and PipelineStep are updated, and UpdatedAt is newer
 	assert.Equal(t, prURL, updatedStatus.PRURL)
 	assert.Equal(t, "pr-submitted", updatedStatus.PipelineStep)
-	
+
 	// Parse back to time.Time for comparison
 	initialUpdatedAt, _ := time.Parse(time.RFC3339, initialStatus.UpdatedAt)
 	updatedUpdatedAt, _ := time.Parse(time.RFC3339, updatedStatus.UpdatedAt)
-	
+
 	assert.False(t, updatedUpdatedAt.Before(initialUpdatedAt), "UpdatedAt should be no earlier than initial UpdatedAt")
 
 	// Ensure other fields are unchanged
 	assert.Equal(t, initialStatus.Repo, updatedStatus.Repo)
 	assert.Equal(t, initialStatus.Branch, updatedStatus.Branch)
 	assert.Equal(t, initialStatus.WorkDir, updatedStatus.WorkDir)
-	assert.Equal(t, initialStatus.StartedAt, updatedStatus.StartedAt) 
+	assert.Equal(t, initialStatus.StartedAt, updatedStatus.StartedAt)
 }

@@ -1,4 +1,5 @@
 package commands_test
+
 import (
 	"bytes"
 	"fmt"

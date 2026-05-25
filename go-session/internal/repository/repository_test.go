@@ -56,7 +56,7 @@ func TestAdd(t *testing.T) {
 				AgentsPath:   "/path/to/agents2",
 				VerifyConfig: nil,
 			},
-			expectedErr: "", // The Add function will handle the warning, but it's not an error.
+			expectedErr: "",   // The Add function will handle the warning, but it's not an error.
 			expectWarn:  true, // Expect warning for missing verify_config
 		},
 		{
@@ -271,10 +271,10 @@ func TestList(t *testing.T) {
 
 				// Add two repositories
 				repo1 := RepositoryConfig{
-					WorkDir:    tmpDir,
-					RepoName:   "org/repoA",
-					IsWorktree: boolPtr(false),
-					AgentsPath: "/path/to/agentsA",
+					WorkDir:      tmpDir,
+					RepoName:     "org/repoA",
+					IsWorktree:   boolPtr(false),
+					AgentsPath:   "/path/to/agentsA",
 					VerifyConfig: &VerifyConfig{Build: "buildA", Test: "testA", Lint: "lintA"},
 				}
 				repo2 := RepositoryConfig{
@@ -291,10 +291,10 @@ func TestList(t *testing.T) {
 			expectedLen: 2,
 			expectedRepos: map[string]RepositoryConfig{
 				"org/repoA": {
-					WorkDir:    tmpDir,
-					RepoName:   "org/repoA",
-					IsWorktree: boolPtr(false),
-					AgentsPath: "/path/to/agentsA",
+					WorkDir:      tmpDir,
+					RepoName:     "org/repoA",
+					IsWorktree:   boolPtr(false),
+					AgentsPath:   "/path/to/agentsA",
 					VerifyConfig: &VerifyConfig{Build: "buildA", Test: "testA", Lint: "lintA"},
 				},
 				"org/repoB": {

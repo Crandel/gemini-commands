@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gopkg.in/yaml.v3" // Added yaml import
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3" // Added yaml import
 )
 
 // --- helpers ---

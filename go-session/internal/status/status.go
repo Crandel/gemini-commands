@@ -15,19 +15,19 @@ import (
 // Unmarshaling a file that contains a key not present in this struct silently drops that key on the
 // next Write round-trip. Add new status.yaml fields here before deploying code that writes them.
 type Status struct {
-	Mode         string `yaml:"mode"`
-	Repo         string `yaml:"repo"`
-	Branch       string `yaml:"branch"`
-	WorkDir      string `yaml:"work_dir"`
-	PID          int    `yaml:"pid"`
-	PipelineStep string `yaml:"pipeline_step"`
-	StartedAt    string `yaml:"started_at"`
-	UpdatedAt    string `yaml:"updated_at"`
-	StoryURL     string `yaml:"story_url"`
-	ClonePath    string `yaml:"clone_path"`
-	Error        string `yaml:"error"`
-	PRURL        string `yaml:"pr_url"`
-	PRTitle      string `yaml:"pr_title"`
+	Mode                   string `yaml:"mode"`
+	Repo                   string `yaml:"repo"`
+	Branch                 string `yaml:"branch"`
+	WorkDir                string `yaml:"work_dir"`
+	PID                    int    `yaml:"pid"`
+	PipelineStep           string `yaml:"pipeline_step"`
+	StartedAt              string `yaml:"started_at"`
+	UpdatedAt              string `yaml:"updated_at"`
+	StoryURL               string `yaml:"story_url"`
+	ClonePath              string `yaml:"clone_path"`
+	Error                  string `yaml:"error"`
+	PRURL                  string `yaml:"pr_url"`
+	PRTitle                string `yaml:"pr_title"`
 	ImplementationStrategy string `yaml:"strategy"`
 }
 

@@ -1,8 +1,6 @@
 package main
 
 import (
-
-
 	"github.com/daniel-talonone/gemini-commands/internal/commands" // New import
 )
 

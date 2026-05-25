@@ -22,8 +22,6 @@ type Questions struct {
 	Questions []Question `yaml:"questions"`
 }
 
-
-
 // LoadQuestions reads questions.yml from featureDir. Returns an empty string
 // without error if the file does not exist — questions are optional.
 // Returns an error if the feature directory does not exist.

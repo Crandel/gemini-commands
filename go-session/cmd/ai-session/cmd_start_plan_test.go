@@ -67,11 +67,11 @@ func TestLoadPlan_ValidatePlanLogic(t *testing.T) {
 	require.NoError(t, status.Create(dir, "test/repo", "test-branch", "/work", "", ""))
 
 	testCases := []struct {
-		name           string
-		content        string
-		shouldError    bool
-		expectedEmpty  bool
-		description    string
+		name          string
+		content       string
+		shouldError   bool
+		expectedEmpty bool
+		description   string
 	}{
 		{
 			name:          "Empty string file",
@@ -152,10 +152,10 @@ func TestStartPlanCmd_ValidatePlanLogic(t *testing.T) {
 	require.NoError(t, status.Create(dir, "test/repo", "test-branch", "/work", "", ""))
 
 	testCases := []struct {
-		name         string
-		content      string
-		shouldPass   bool
-		description  string
+		name        string
+		content     string
+		shouldPass  bool
+		description string
 	}{
 		{
 			name:        "Valid plan",
