@@ -321,150 +321,81 @@ exit 1`), 0755))
 
 func TestResolveAgentsPath(t *testing.T) {
 	t.Run("repo config agents_path exists - return that path", func(t *testing.T) {
-		// Create a temporary directory for the repo config agents_path
 		tmpDir := t.TempDir()
 		repoAgentsPath := filepath.Join(tmpDir, "repo-agents.md")
 		require.NoError(t, os.WriteFile(repoAgentsPath, []byte("repo agents"), 0644))
 
-		// Create another directory for workDir (and AGENTS.md in it, but should not be used)
 		workDir := t.TempDir()
-		workDirAgentsPath := filepath.Join(workDir, "AGENTS.md")
-		require.NoError(t, os.WriteFile(workDirAgentsPath, []byte("workdir agents"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(workDir, "AGENTS.md"), []byte("workdir agents"), 0644))
 
-		// Create repo config with agents_path pointing to the repo agents file
-		repoConfig := &repository.RepositoryConfig{
-			WorkDir:    workDir,
-			RepoName:   "org/test-repo",
-			AgentsPath: repoAgentsPath,
-		}
-
-		resolvedPath, err := implement.ResolveAgentsPath(workDir, repoConfig)
-		require.NoError(t, err)
-		assert.Equal(t, repoAgentsPath, resolvedPath)
+		repoConfig := &repository.RepositoryConfig{RepoName: "org/test-repo", AgentsPath: repoAgentsPath}
+		assert.Equal(t, repoAgentsPath, implement.ResolveAgentsPath(workDir, repoConfig))
 	})
 
 	t.Run("repo config agents_path does not exist - fallback to workDir/AGENTS.md", func(t *testing.T) {
-		// Create a temporary directory for the repo config agents_path (that doesn't exist)
 		tmpDir := t.TempDir()
 		repoAgentsPath := filepath.Join(tmpDir, "nonexistent-agents.md")
-		// Don't create the file
 
-		// Create another directory for workDir with AGENTS.md
 		workDir := t.TempDir()
 		workDirAgentsPath := filepath.Join(workDir, "AGENTS.md")
 		require.NoError(t, os.WriteFile(workDirAgentsPath, []byte("workdir agents"), 0644))
 
-		// Create repo config with agents_path pointing to a non-existent file
-		repoConfig := &repository.RepositoryConfig{
-			WorkDir:    workDir,
-			RepoName:   "org/test-repo",
-			AgentsPath: repoAgentsPath,
-		}
-
-		resolvedPath, err := implement.ResolveAgentsPath(workDir, repoConfig)
-		require.NoError(t, err)
-		assert.Equal(t, workDirAgentsPath, resolvedPath)
+		repoConfig := &repository.RepositoryConfig{RepoName: "org/test-repo", AgentsPath: repoAgentsPath}
+		assert.Equal(t, workDirAgentsPath, implement.ResolveAgentsPath(workDir, repoConfig))
 	})
 
 	t.Run("repo config agents_path is empty string - fallback to workDir/AGENTS.md", func(t *testing.T) {
-		// Create directory for workDir with AGENTS.md
 		workDir := t.TempDir()
 		workDirAgentsPath := filepath.Join(workDir, "AGENTS.md")
 		require.NoError(t, os.WriteFile(workDirAgentsPath, []byte("workdir agents"), 0644))
 
-		// Create repo config with empty agents_path
-		repoConfig := &repository.RepositoryConfig{
-			WorkDir:    workDir,
-			RepoName:   "org/test-repo",
-			AgentsPath: "",
-		}
-
-		resolvedPath, err := implement.ResolveAgentsPath(workDir, repoConfig)
-		require.NoError(t, err)
-		assert.Equal(t, workDirAgentsPath, resolvedPath)
+		repoConfig := &repository.RepositoryConfig{RepoName: "org/test-repo", AgentsPath: ""}
+		assert.Equal(t, workDirAgentsPath, implement.ResolveAgentsPath(workDir, repoConfig))
 	})
 
 	t.Run("no repo config (nil) - fallback to workDir/AGENTS.md", func(t *testing.T) {
-		// Create directory for workDir with AGENTS.md
 		workDir := t.TempDir()
 		workDirAgentsPath := filepath.Join(workDir, "AGENTS.md")
 		require.NoError(t, os.WriteFile(workDirAgentsPath, []byte("workdir agents"), 0644))
 
-		resolvedPath, err := implement.ResolveAgentsPath(workDir, nil)
-		require.NoError(t, err)
-		assert.Equal(t, workDirAgentsPath, resolvedPath)
+		assert.Equal(t, workDirAgentsPath, implement.ResolveAgentsPath(workDir, nil))
 	})
 
 	t.Run("workDir/AGENTS.md does not exist - return fallback path anyway", func(t *testing.T) {
-		// Create directory for workDir but no AGENTS.md file
 		workDir := t.TempDir()
-		workDirAgentsPath := filepath.Join(workDir, "AGENTS.md")
-
-		// No repo config
-		resolvedPath, err := implement.ResolveAgentsPath(workDir, nil)
-		require.NoError(t, err)
-		assert.Equal(t, workDirAgentsPath, resolvedPath)
+		assert.Equal(t, filepath.Join(workDir, "AGENTS.md"), implement.ResolveAgentsPath(workDir, nil))
 	})
 
 	t.Run("repo config agents_path and workDir AGENTS.md both exist - prefer repo config", func(t *testing.T) {
-		// Create a temporary directory for the repo config agents_path
 		tmpDir := t.TempDir()
 		repoAgentsPath := filepath.Join(tmpDir, "repo-agents.md")
 		require.NoError(t, os.WriteFile(repoAgentsPath, []byte("repo agents"), 0644))
 
-		// Create another directory for workDir with AGENTS.md
 		workDir := t.TempDir()
-		workDirAgentsPath := filepath.Join(workDir, "AGENTS.md")
-		require.NoError(t, os.WriteFile(workDirAgentsPath, []byte("workdir agents"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(workDir, "AGENTS.md"), []byte("workdir agents"), 0644))
 
-		// Create repo config with agents_path pointing to the repo agents file
-		repoConfig := &repository.RepositoryConfig{
-			WorkDir:    workDir,
-			RepoName:   "org/test-repo",
-			AgentsPath: repoAgentsPath,
-		}
-
-		resolvedPath, err := implement.ResolveAgentsPath(workDir, repoConfig)
-		require.NoError(t, err)
-		assert.Equal(t, repoAgentsPath, resolvedPath)
+		repoConfig := &repository.RepositoryConfig{RepoName: "org/test-repo", AgentsPath: repoAgentsPath}
+		assert.Equal(t, repoAgentsPath, implement.ResolveAgentsPath(workDir, repoConfig))
 	})
 }
 
 func TestFormatVerificationCommands(t *testing.T) {
-	t.Run("repo verify_config formats as Build: Test: Lint: with newlines", func(t *testing.T) {
+	t.Run("formats as Build: Test: Lint: with newlines", func(t *testing.T) {
 		verifyConfig := &repository.VerifyConfig{
 			Build: "make build",
 			Test:  "make test",
 			Lint:  "make lint",
 		}
-		fallback := "cd go-session && make prcm"
-
-		result := implement.FormatVerificationCommands(verifyConfig, fallback)
-
-		expected := "Build: make build\nTest: make test\nLint: make lint"
-		assert.Equal(t, expected, result)
+		assert.Equal(t, "Build: make build\nTest: make test\nLint: make lint", implement.FormatVerificationCommands(verifyConfig))
 	})
 
-	t.Run("fallback string passes through unchanged when verify_config is nil", func(t *testing.T) {
-		fallback := "cd go-session && make prcm"
-
-		result := implement.FormatVerificationCommands(nil, fallback)
-
-		assert.Equal(t, fallback, result)
+	t.Run("nil verify_config returns empty string", func(t *testing.T) {
+		assert.Equal(t, "", implement.FormatVerificationCommands(nil))
 	})
 
 	t.Run("empty strings in verify_config are formatted", func(t *testing.T) {
-		verifyConfig := &repository.VerifyConfig{
-			Build: "",
-			Test:  "",
-			Lint:  "",
-		}
-		fallback := "cd go-session && make prcm"
-
-		result := implement.FormatVerificationCommands(verifyConfig, fallback)
-
-		expected := "Build: \nTest: \nLint: "
-		assert.Equal(t, expected, result)
+		verifyConfig := &repository.VerifyConfig{Build: "", Test: "", Lint: ""}
+		assert.Equal(t, "Build: \nTest: \nLint: ", implement.FormatVerificationCommands(verifyConfig))
 	})
 
 	t.Run("complex commands with special characters are formatted", func(t *testing.T) {
@@ -473,12 +404,8 @@ func TestFormatVerificationCommands(t *testing.T) {
 			Test:  "go test -v -race ./... | grep -E 'PASS|FAIL'",
 			Lint:  "golangci-lint run --timeout=5m .",
 		}
-		fallback := "cd go-session && make prcm"
-
-		result := implement.FormatVerificationCommands(verifyConfig, fallback)
-
 		expected := "Build: go build ./... && echo 'build complete'\nTest: go test -v -race ./... | grep -E 'PASS|FAIL'\nLint: golangci-lint run --timeout=5m ."
-		assert.Equal(t, expected, result)
+		assert.Equal(t, expected, implement.FormatVerificationCommands(verifyConfig))
 	})
 }
 
@@ -586,15 +513,30 @@ func TestRunVerify(t *testing.T) {
 		assert.True(t, os.IsNotExist(err))
 	})
 
-	t.Run("returns error when verify config is nil", func(t *testing.T) {
+	t.Run("fails early on test failure, does not run lint", func(t *testing.T) {
 		workDir := t.TempDir()
+		lintFile := filepath.Join(workDir, "lint_marker.txt")
+		verifyConfig := &repository.VerifyConfig{
+			Build: "echo 'build ok'",
+			Test:  "exit 1",
+			Lint:  fmt.Sprintf("echo 'should not run' > %s", lintFile),
+		}
 
-		err := implement.RunVerify(workDir, nil)
+		err := implement.RunVerify(workDir, verifyConfig)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Test failed")
+
+		_, statErr := os.Stat(lintFile)
+		assert.True(t, os.IsNotExist(statErr), "lint must not run when test fails")
+	})
+
+	t.Run("returns error when verify config is nil", func(t *testing.T) {
+		err := implement.RunVerify(t.TempDir(), nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "verify config is nil")
 	})
 
-	t.Run("captures and includes output in error message on failure", func(t *testing.T) {
+	t.Run("captures output and includes step label in error on failure", func(t *testing.T) {
 		workDir := t.TempDir()
 		verifyConfig := &repository.VerifyConfig{
 			Build: "echo 'build error output'; exit 1",
@@ -604,6 +546,71 @@ func TestRunVerify(t *testing.T) {
 
 		err := implement.RunVerify(workDir, verifyConfig)
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Build failed")
 		assert.Contains(t, err.Error(), "build error output")
+	})
+}
+
+// TestRun_VerifyConfigRouting verifies that Run() routes to RunVerify when the
+// repository config has a VerifyConfig, and falls back to AGENTS.md otherwise.
+func TestRun_VerifyConfigRouting(t *testing.T) {
+	t.Setenv("IN_TEST_MODE", "true")
+
+	planYML := `- id: test-slice
+  description: "Test slice"
+  status: todo
+  depends_on: []
+  tasks:
+    - id: test-task
+      task: "Do something"
+      status: done
+`
+
+	t.Run("uses RunVerify when repo config has VerifyConfig", func(t *testing.T) {
+		env := setupPerSliceTest(t, planYML)
+
+		repository.SetRegistryPathOverride(filepath.Join(t.TempDir(), "repositories_config.yaml"))
+		t.Cleanup(func() { repository.SetRegistryPathOverride("") })
+
+		isWorktree := false
+		err := repository.Add(repository.RepositoryConfig{
+			RepoName:   "org/routing-test",
+			WorkDir:    env.projectDir,
+			IsWorktree: &isWorktree,
+			AgentsPath: filepath.Join(env.projectDir, "AGENTS.md"),
+			VerifyConfig: &repository.VerifyConfig{
+				Build: "echo 'build ok'",
+				Test:  "echo 'test ok'",
+				Lint:  "echo 'lint ok'",
+			},
+		}, io.Discard)
+		require.NoError(t, err)
+
+		require.NoError(t, os.WriteFile(filepath.Join(env.featureDir, "status.yaml"),
+			[]byte("repo: org/routing-test\npipeline_step: plan-done\n"), 0644))
+
+		err = implement.Run(env.logger, "test-routing", env.featureDir, env.projectDir, env.aiSessionHome, 1, 0, &implement.PerTaskStrategy{}, &testRunner{})
+		require.NoError(t, err)
+
+		logBytes, err := os.ReadFile(filepath.Join(env.featureDir, "log.md"))
+		require.NoError(t, err)
+		assert.Contains(t, string(logBytes), "Build: echo 'build ok'")
+	})
+
+	t.Run("falls back to AGENTS.md when repo not in registry", func(t *testing.T) {
+		env := setupPerSliceTest(t, planYML)
+
+		repository.SetRegistryPathOverride(filepath.Join(t.TempDir(), "repositories_config.yaml"))
+		t.Cleanup(func() { repository.SetRegistryPathOverride("") })
+
+		require.NoError(t, os.WriteFile(filepath.Join(env.featureDir, "status.yaml"),
+			[]byte("repo: org/unknown-repo\npipeline_step: plan-done\n"), 0644))
+
+		err := implement.Run(env.logger, "test-fallback", env.featureDir, env.projectDir, env.aiSessionHome, 1, 0, &implement.PerTaskStrategy{}, &testRunner{})
+		require.NoError(t, err)
+
+		logBytes, err := os.ReadFile(filepath.Join(env.featureDir, "log.md"))
+		require.NoError(t, err)
+		assert.NotContains(t, string(logBytes), "Build:")
 	})
 }

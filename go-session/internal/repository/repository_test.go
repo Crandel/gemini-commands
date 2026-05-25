@@ -330,13 +330,8 @@ func TestList(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	// Create a temporary directory for valid work_dir tests
-	tmpDir, err := os.MkdirTemp("", "test-workdir-*")
-	assert.NoError(t, err)
-	defer func() {
-		err := os.RemoveAll(tmpDir)
-		assert.NoError(t, err)
-	}()
+	// Shared work_dir used by all sub-tests (directory must exist for Add validation).
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name            string
@@ -416,7 +411,7 @@ func TestGet(t *testing.T) {
 			expectedErr:    false,
 		},
 		{
-			name: "Get from empty registry returns nil, nil",
+			name: "Get non-matching repo from non-empty registry returns nil, nil",
 			setup: func(t *testing.T) {
 				SetRegistryPathOverride(filepath.Join(t.TempDir(), "repositories_config.yaml"))
 				t.Cleanup(func() { SetRegistryPathOverride("") })
