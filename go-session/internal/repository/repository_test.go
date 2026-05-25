@@ -328,3 +328,133 @@ func TestList(t *testing.T) {
 		})
 	}
 }
+
+func TestGet(t *testing.T) {
+	// Create a temporary directory for valid work_dir tests
+	tmpDir, err := os.MkdirTemp("", "test-workdir-*")
+	assert.NoError(t, err)
+	defer func() {
+		err := os.RemoveAll(tmpDir)
+		assert.NoError(t, err)
+	}()
+
+	tests := []struct {
+		name            string
+		setup           func(t *testing.T)
+		repoName        string
+		expectedConfig  *RepositoryConfig
+		expectedErr     bool
+	}{
+		{
+			name: "Get existing repo with verify_config",
+			setup: func(t *testing.T) {
+				SetRegistryPathOverride(filepath.Join(t.TempDir(), "repositories_config.yaml"))
+				t.Cleanup(func() { SetRegistryPathOverride("") })
+
+				config := RepositoryConfig{
+					WorkDir:    tmpDir,
+					RepoName:   "org/test-repo",
+					IsWorktree: boolPtr(false),
+					AgentsPath: "/path/to/agents",
+					VerifyConfig: &VerifyConfig{
+						Build: "make build",
+						Test:  "make test",
+						Lint:  "make lint",
+					},
+				}
+				err := Add(config, io.Discard)
+				assert.NoError(t, err)
+			},
+			repoName: "org/test-repo",
+			expectedConfig: &RepositoryConfig{
+				WorkDir:    tmpDir,
+				RepoName:   "org/test-repo",
+				IsWorktree: boolPtr(false),
+				AgentsPath: "/path/to/agents",
+				VerifyConfig: &VerifyConfig{
+					Build: "make build",
+					Test:  "make test",
+					Lint:  "make lint",
+				},
+			},
+			expectedErr: false,
+		},
+		{
+			name: "Get existing repo without verify_config",
+			setup: func(t *testing.T) {
+				SetRegistryPathOverride(filepath.Join(t.TempDir(), "repositories_config.yaml"))
+				t.Cleanup(func() { SetRegistryPathOverride("") })
+
+				config := RepositoryConfig{
+					WorkDir:      tmpDir,
+					RepoName:     "org/another-repo",
+					IsWorktree:   boolPtr(true),
+					AgentsPath:   "/path/to/agents",
+					VerifyConfig: nil,
+				}
+				err := Add(config, io.Discard)
+				assert.NoError(t, err)
+			},
+			repoName: "org/another-repo",
+			expectedConfig: &RepositoryConfig{
+				WorkDir:      tmpDir,
+				RepoName:     "org/another-repo",
+				IsWorktree:   boolPtr(true),
+				AgentsPath:   "/path/to/agents",
+				VerifyConfig: nil,
+			},
+			expectedErr: false,
+		},
+		{
+			name: "Get missing repo returns nil, nil",
+			setup: func(t *testing.T) {
+				SetRegistryPathOverride(filepath.Join(t.TempDir(), "repositories_config.yaml"))
+				t.Cleanup(func() { SetRegistryPathOverride("") })
+			},
+			repoName:       "org/nonexistent-repo",
+			expectedConfig: nil,
+			expectedErr:    false,
+		},
+		{
+			name: "Get from empty registry returns nil, nil",
+			setup: func(t *testing.T) {
+				SetRegistryPathOverride(filepath.Join(t.TempDir(), "repositories_config.yaml"))
+				t.Cleanup(func() { SetRegistryPathOverride("") })
+
+				config := RepositoryConfig{
+					WorkDir:    tmpDir,
+					RepoName:   "org/some-repo",
+					IsWorktree: boolPtr(false),
+					AgentsPath: "/path/to/agents",
+				}
+				err := Add(config, io.Discard)
+				assert.NoError(t, err)
+			},
+			repoName:       "org/different-repo",
+			expectedConfig: nil,
+			expectedErr:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup(t)
+
+			config, err := Get(tt.repoName)
+
+			if tt.expectedErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			if tt.expectedConfig != nil {
+				assert.NotNil(t, config)
+				assert.Equal(t, *tt.expectedConfig, *config)
+			} else {
+				assert.Nil(t, config)
+			}
+		})
+	}
+}

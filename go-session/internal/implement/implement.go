@@ -18,6 +18,7 @@ import (
 	"github.com/daniel-talonone/gemini-commands/internal/llm"
 	"github.com/daniel-talonone/gemini-commands/internal/log"
 	"github.com/daniel-talonone/gemini-commands/internal/plan"
+	"github.com/daniel-talonone/gemini-commands/internal/repository"
 	"github.com/daniel-talonone/gemini-commands/internal/status"
 	"gopkg.in/yaml.v3"
 )
@@ -347,23 +348,57 @@ func Run(logger *slog.Logger, featureID, featureDir, workDir, aiSessionHome stri
 	appendLog(logger, featureDir, fmt.Sprintf("--- Starting implementation orchestration for feature: %s ---", featureID))
 	logger.Info("Starting implementation orchestration", "feature_id", featureID)
 
-	// Extract verification command from the project's AGENTS.md.
-	verificationCmd, err := ExtractVerificationCommand(workDir)
+	// Load status to get repo name, then look up repo config.
+	st, err := status.LoadStatus(featureDir)
 	if err != nil {
-		return fmt.Errorf("extracting verification command: %w", err)
+		return fmt.Errorf("loading status: %w", err)
+	}
+
+	var repoConfig *repository.RepositoryConfig
+	if st.Repo != "" {
+		repoConfig, err = repository.Get(st.Repo)
+		if err != nil {
+			return fmt.Errorf("looking up repository config: %w", err)
+		}
+	}
+
+	// Resolve the AGENTS.md file path (prefer repo config if available).
+	agentsPath, err := ResolveAgentsPath(workDir, repoConfig)
+	if err != nil {
+		return fmt.Errorf("resolving AGENTS.md path: %w", err)
+	}
+
+	// Resolve verification command and config.
+	var verificationCmd string
+	var verifyConfig *repository.VerifyConfig
+	if repoConfig != nil && repoConfig.VerifyConfig != nil {
+		verifyConfig = repoConfig.VerifyConfig
+		verificationCmd = FormatVerificationCommands(verifyConfig, "")
+	} else {
+		var err2 error
+		verificationCmd, err2 = ExtractVerificationCommand(agentsPath)
+		if err2 != nil {
+			return fmt.Errorf("extracting verification command: %w", err2)
+		}
 	}
 
 	// Optional source-file filter for the codebase context diff (see AGENTS.md
 	// "## Context files" section). Falls back to defaultContextExcludes if absent.
-	contextPattern := extractContextPattern(workDir)
+	contextPattern := ExtractContextPattern(agentsPath)
 	appendLog(logger, featureDir, fmt.Sprintf("Using verification command: %s", verificationCmd))
 	logger.Info("Using verification command", "command", verificationCmd)
 
 	// Initial verification gate — codebase must be passing before we start.
 	appendLog(logger, featureDir, "Running initial verification gate...")
 	logger.Info("Running initial verification gate")
-	if err := runShell(verificationCmd, workDir); err != nil {
-		msg := fmt.Sprintf("Initial verification failed — codebase must be in a passing state to begin: %v", err)
+	var verifyErr error
+	if verifyConfig != nil {
+		verifyErr = RunVerify(workDir, verifyConfig)
+	} else {
+		verifyErr = runShell(verificationCmd, workDir)
+	}
+	if verifyErr != nil {
+		msg := fmt.Sprintf("Initial verification failed — codebase must be in a passing state to begin: %v", verifyErr)
 		appendLog(logger, featureDir, msg)
 		return errors.New(msg)
 	}
@@ -468,11 +503,12 @@ func Run(logger *slog.Logger, featureID, featureDir, workDir, aiSessionHome stri
 	return nil
 }
 
-// extractContextPattern reads the optional "## Context files" section
-// from AGENTS.md and returns the space-separated glob list. Returns nil when the section
-// is absent so callers can fall back to defaultContextExcludes.
-func extractContextPattern(dir string) []string {
-	content, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+// ExtractContextPattern reads the optional "## Context files" section
+// from the specified AGENTS.md file and returns the space-separated glob list.
+// Returns nil when the section is absent or the file cannot be read, so callers
+// can fall back to defaultContextExcludes.
+func ExtractContextPattern(filePath string) []string {
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil
 	}
@@ -703,10 +739,10 @@ func depsMet(p plan.Plan, deps []string) bool {
 	return true
 }
 
-// extractVerificationCommand reads AGENTS.md from dir and extracts the verification
-// command from a "## Verification" section.
-func ExtractVerificationCommand(dir string) (string, error) {
-	content, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+// ExtractVerificationCommand reads AGENTS.md from the specified file path and extracts
+// the verification command from a "## Verification" section.
+func ExtractVerificationCommand(filePath string) (string, error) {
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("reading AGENTS.md: %w", err)
 	}
@@ -724,4 +760,54 @@ func runShell(shellCmd, dir string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// ResolveAgentsPath returns the path to AGENTS.md to use for the given workDir
+// and optional repoConfig. It prefers repoConfig.AgentsPath if present and the
+// file exists; otherwise falls back to workDir/AGENTS.md.
+func ResolveAgentsPath(workDir string, repoConfig *repository.RepositoryConfig) (string, error) {
+	if repoConfig != nil && repoConfig.AgentsPath != "" {
+		if _, err := os.Stat(repoConfig.AgentsPath); err == nil {
+			return repoConfig.AgentsPath, nil
+		}
+	}
+	return filepath.Join(workDir, "AGENTS.md"), nil
+}
+
+// FormatVerificationCommands formats verification commands for display in prompts.
+// If verifyConfig is non-nil, formats as labeled multi-line:
+//   Build: <build_cmd>
+//   Test: <test_cmd>
+//   Lint: <lint_cmd>
+// Otherwise returns the fallback string unchanged.
+func FormatVerificationCommands(verifyConfig *repository.VerifyConfig, fallback string) string {
+	if verifyConfig == nil {
+		return fallback
+	}
+	return fmt.Sprintf("Build: %s\nTest: %s\nLint: %s", verifyConfig.Build, verifyConfig.Test, verifyConfig.Lint)
+}
+
+// RunVerify executes the build, test, and lint commands sequentially, capturing output.
+// If any step fails, it returns an error with the step name and its output.
+func RunVerify(workDir string, verify *repository.VerifyConfig) error {
+	if verify == nil {
+		return fmt.Errorf("verify config is nil")
+	}
+
+	steps := []struct {
+		name string
+		cmd  string
+	}{
+		{"Build", verify.Build},
+		{"Test", verify.Test},
+		{"Lint", verify.Lint},
+	}
+
+	for _, step := range steps {
+		output, err := runShellAndCaptureOutput(step.cmd, workDir)
+		if err != nil {
+			return fmt.Errorf("%s failed: %w\nOutput:\n%s", step.name, err, output)
+		}
+	}
+	return nil
 }
