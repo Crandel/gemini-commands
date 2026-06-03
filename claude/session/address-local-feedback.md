@@ -101,14 +101,14 @@ For `resolved` items only — propose the minimal change, wait for user approval
 After each item is triaged, update its status using the CLI:
 
 ```bash
-# Mark resolved
+# Mark resolved (regular review)
 ai-session review-update "<feature-id>" --json '[{"id":"<id>","status":"resolved"}]'
 
-# Mark skipped
-ai-session review-update "<feature-id>" --json '[{"id":"<id>","status":"skipped"}]'
+# Mark skipped (devops review)
+ai-session review-update "<feature-id>" --devops --json '[{"id":"<id>","status":"skipped"}]'
 ```
 
-The `--type` flag selects the file when needed: `regular` → `review.yml`, `docs` → `review-docs.yml`, `devops` → `review-devops.yml`.
+The file is selected via a flag: `--regular` (default) → `review.yml`, `--docs` → `review-docs.yml`, `--devops` → `review-devops.yml`.
 
 ### 7. Report
 

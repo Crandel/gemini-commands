@@ -6,7 +6,11 @@ You are an orchestrator for conducting a DevOps review. Your goal is to delegate
 
 **Orchestration Process:**
 
-1.  **Identify Active Feature:** Determine the current feature directory from the session context.
+1.  **Identify Active Feature:** Determine the story ID from the session context (e.g. `sc-71366`), then resolve the full feature directory path:
+    ```bash
+    FEATURE_DIR=$(ai-session resolve-feature-dir <story-id>)
+    ```
+    Use `$FEATURE_DIR` (the full resolved path) everywhere `{{feature-dir}}` appears below.
 
 2.  **Gather Objective Context:**
     *   Find the `### ✨ Session Context Loaded for...` block in the conversation history. Extract the **Description** (from `description.md`) and **Project Conventions** (from `AGENTS.md`) from it.
@@ -65,6 +69,6 @@ You are an orchestrator for conducting a DevOps review. Your goal is to delegate
     ---
 
 5.  **Verify:**
-    *   After the sub-agent completes, read `{{feature-dir}}/review-devops.yml` to confirm the write succeeded.
+    *   After the sub-agent completes, read `$FEATURE_DIR/review-devops.yml` to confirm the write succeeded.
 
 **Begin.**

@@ -23,7 +23,7 @@ The user has provided a high-level goal: `{{args}}`.
     *   Prompt them for edge cases, constraints, and success metrics.
 
 3.  **Perform Codebase Analysis (In Parallel):**
-    *   As you converse, use the `glob` and `grep_search` tools to silently explore the codebase.
+    *   As you converse, use `glob` and `grep_search` to silently explore the codebase.
     *   Identify files, functions, and code sections relevant to the feature being discussed. This will be crucial for the technical notes.
 
 4.  **Synthesize and Propose a Draft:**
@@ -37,7 +37,14 @@ The user has provided a high-level goal: `{{args}}`.
 5.  **Create Artifacts (Upon Approval):**
     *   Once the user approves the draft:
         1.  Generate a suitable directory name from the user's initial goal (e.g., "Create user profile page" -> `create-user-profile-page`).
-        2.  Use the `run_shell_command` tool to scaffold the directory: `ai-session create-feature "create-user-profile-page"`. Always use the bare `ai-session` command — never construct an absolute path.
+        2.  Use the `run_shell_command` tool to scaffold the directory, passing git context explicitly so `status.yaml` is populated correctly even when the remote uses an `ssh://` URL:
+            ```bash
+            REPO=$(git remote get-url origin | sed 's|.*github\\.com[:/]\\(.*\\)\\.git|\\1|')
+            BRANCH=$(git branch --show-current)
+            WORK_DIR=$(git rev-parse --show-toplevel)
+            ai-session create-feature "<directory-name>" --repo "$REPO" --branch "$BRANCH" --work-dir "$WORK_DIR"
+            ```
+            Always use the bare `ai-session` command — never construct an absolute path.
         3.  Use the `run_shell_command` tool to save `description.md` with the approved draft content:
             ```bash
             ai-session description create "create-user-profile-page" <<'EOF'
@@ -46,7 +53,7 @@ The user has provided a high-level goal: `{{args}}`.
             ```
 
 6.  **Establish Session Context (Final Step):**
-    *   Use the `read_file` tool to get the content of `AGENTS.md` from the project root (fall back to `GEMINI.md` if not present). This should not be displayed to the user but kept internally.
+    *   Read the content of `AGENTS.md` from the project root (fall back to `GEMINI.md` if not present) This should not be displayed to the user but keep internally.
     *   Format and display using the following Markdown structure EXACTLY:
 
         ```markdown

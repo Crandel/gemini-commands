@@ -22,7 +22,7 @@ Find the `### ✨ Session Context Loaded for...` block in the conversation histo
 - The **feature ID** (from the block title)
 - The **Description** and acceptance criteria
 
-Load all feature files (including all `review*.yml`) in one call:
+Load all feature files (including all `review*.yml`) in one call using the `run_shell_command` tool:
 ```bash
 ai-session load-context "<feature-id>"
 ```
@@ -52,7 +52,7 @@ Then reason aloud about it before proposing any action:
 What is the reviewer actually worried about? Is it a bug, a clarity issue, a style preference, or a potential misunderstanding?
 
 **Step B — Check for safety nets.**
-Read the code at the reported location and trace the call chain upward. Is the concern already handled at a higher level (e.g., a field populated after the internal function returns, a guard upstream, a type constraint)?
+Use the `read_file` tool to read the code at the reported location and trace the call chain upward. Is the concern already handled at a higher level (e.g., a field populated after the internal function returns, a guard upstream, a type constraint)?
 
 **Step C — Classify the item.**
 
@@ -70,19 +70,19 @@ For any item classified as a potential bug:
 
 1. **Identify the public entry point.** Do not test private/internal helpers directly. Find the exported function or handler that exercises the reported code path.
 
-2. **Write a focused test** that:
+2. **Use the `write_file` tool to write a focused test** that:
    - Calls only the public method
    - Sets up the minimum input to trigger the reported scenario
    - Asserts the incorrect behaviour the reviewer described
 
-3. **Run the test:**
+3. **Run the test using the `run_shell_command` tool:**
    ```bash
    <scoped-test-command> --testPathPattern="<file>" 2>&1 | tail -30
    ```
 
 4. **Interpret the result:**
    - **Test fails** → Bug reproduced. Fix it, re-run until the test passes, then mark item `resolved`.
-   - **Test passes** → Bug not reproduced. The reviewer's concern is likely addressed elsewhere. Mark item `skipped` with a rationale referencing the safety net you identified.
+   - **Test passes** → Bug not reproduced. The reviewer's concern is likely addressed elsewhere. Mark `skipped` with a rationale referencing the safety net you identified.
 
    > A passing test is evidence, not proof. If you believe the scenario genuinely isn't reachable through the public interface due to a higher-level guard, state that explicitly.
 
@@ -91,21 +91,21 @@ For any item classified as a potential bug:
 For `resolved` items only — propose the minimal change, wait for user approval, then implement. After each fix:
 
 1. Re-run the reproduction test to confirm it passes.
-2. Run the full verification command (from `AGENTS.md` / `GEMINI.md`) to confirm no regressions.
+2. Run the full verification command (from `AGENTS.md` / `GEMINI.md`) using the `run_shell_command` tool to confirm no regressions.
 
 ### 6. Update Review Files
 
-After each item is triaged, update its status using the CLI:
+After each item is triaged, update its status using the CLI via the `run_shell_command` tool:
 
 ```bash
-# Mark resolved
+# Mark resolved (regular review)
 ai-session review-update "<feature-id>" --json '[{"id":"<id>","status":"resolved"}]'
 
-# Mark skipped
-ai-session review-update "<feature-id>" --json '[{"id":"<id>","status":"skipped"}]'
+# Mark skipped (devops review)
+ai-session review-update "<feature-id>" --devops --json '[{"id":"<id>","status":"skipped"}]'
 ```
 
-The `--type` flag selects the file when needed: `regular` → `review.yml`, `docs` → `review-docs.yml`, `devops` → `review-devops.yml`.
+The file is selected via a flag: `--regular` (default) → `review.yml`, `--docs` → `review-docs.yml`, `--devops` → `review-devops.yml`.
 
 ### 7. Report
 
@@ -118,5 +118,5 @@ Print a final table:
 
 ### 8. Checkpoint
 
-Run `/session:checkpoint` to save progress.
+Run `/session:checkpoint` using the `run_shell_command` tool to save progress.
 """

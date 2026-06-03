@@ -76,6 +76,16 @@ func TestResolveFeatureDir_SSHRemote(t *testing.T) {
 	assert.Contains(t, result, ".features/")
 }
 
+func TestResolveFeatureDir_SSHSchemeRemote(t *testing.T) {
+	dir := t.TempDir()
+	result, err := feature.ResolveFeatureDir(
+		"sc-1234", dir, "ssh://git@github.com/myorg/myrepo.git",
+	)
+	require.NoError(t, err)
+	assert.True(t, strings.HasSuffix(result, filepath.Join("myorg", "myrepo", "sc-1234")))
+	assert.Contains(t, result, ".features/")
+}
+
 func TestResolveFeatureDir_NoRemoteNoLocal(t *testing.T) {
 	dir := t.TempDir()
 	_, err := feature.ResolveFeatureDir("sc-1234", dir, "")

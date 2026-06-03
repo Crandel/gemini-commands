@@ -6,7 +6,11 @@ You are an orchestrator for conducting a documentation review. Your goal is to d
 
 **Orchestration Process:**
 
-1.  **Identify Active Feature:** Determine the current feature directory from the session context.
+1.  **Identify Active Feature:** Determine the story ID from the session context (e.g. `sc-71366`), then resolve the full feature directory path:
+    ```bash
+    FEATURE_DIR=$(ai-session resolve-feature-dir <story-id>)
+    ```
+    Use `$FEATURE_DIR` (the full resolved path) everywhere `{{feature-dir}}` appears below.
 
 2.  **Gather Objective Context:**
     *   Find the `### ✨ Session Context Loaded for...` block in the conversation history. Extract the **Description** (from `description.md`) and **Project Conventions** (from `AGENTS.md`) from it.
@@ -61,13 +65,13 @@ You are an orchestrator for conducting a documentation review. Your goal is to d
         *   `status`: always `'open'`
     3.  **Save Feedback:** Use the Bash tool:
         ```bash
-        printf '%s' "$FINDINGS_YAML" | ai-session review-write "{{feature-dir}}" --type docs
+        printf '%s' "$FINDINGS_YAML" | ai-session review-write "$FEATURE_DIR" --type docs
         ```
         If the command exits non-zero, the error identifies exactly what to fix. Fix and retry. Maximum 3 attempts.
 
     ---
 
 5.  **Verify:**
-    *   After the sub-agent completes, read `{{feature-dir}}/review-docs.yml` to confirm the write succeeded.
+    *   After the sub-agent completes, read `$FEATURE_DIR/review-docs.yml` to confirm the write succeeded.
 
 **Begin.**
