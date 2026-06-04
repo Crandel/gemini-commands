@@ -76,7 +76,7 @@ Types with no findings are skipped automatically.`,
 			}
 
 			fmt.Fprintf(os.Stderr, "Fetching unresolved review threads from GitHub...\n")
-			threads, err := github.GetUnresolvedReviewThreads(s.WorkDir, s.Branch)
+			threads, err := github.GetUnresolvedReviewThreads(s.WorkDir, s.Repo, s.Branch)
 			if err != nil {
 				return fmt.Errorf("getting unresolved review threads: %w", err)
 			}

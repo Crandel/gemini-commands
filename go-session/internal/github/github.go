@@ -11,43 +11,124 @@ import (
 
 var execCommand = exec.Command
 
-type PRReviewThread struct {
-	Comments []struct {
-		Author struct {
-			Login string `json:"login"`
-		} `json:"author"`
-		Body string `json:"body"`
-		Path string `json:"path"`
-		Line int    `json:"line"`
-	} `json:"comments"`
-	IsResolved bool `json:"isResolved"`
+// New structs for GraphQL response
+type gqlComment struct {
+	Author struct {
+		Login string `json:"login"`
+	} `json:"author"`
+	Body string `json:"body"`
+	Path string `json:"path"`
+	Line int    `json:"line"`
 }
 
-type PRView struct {
-	ReviewThreads []PRReviewThread `json:"reviewThreads"`
+type gqlComments struct {
+	Nodes []gqlComment `json:"nodes"`
 }
 
-func GetUnresolvedReviewThreads(workDir, branch string) (string, error) {
-	cmd := execCommand("gh", "pr", "view", "--json", "reviewThreads")
-	cmd.Dir = workDir
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		return "", fmt.Errorf("gh command failed: %s: %w", stderr.String(), err)
+type gqlThread struct {
+	IsResolved bool        `json:"isResolved"`
+	Comments   gqlComments `json:"comments"`
+}
+
+type gqlThreads struct {
+	Nodes []gqlThread `json:"nodes"`
+}
+
+type gqlPullRequest struct {
+	ReviewThreads gqlThreads `json:"reviewThreads"`
+}
+
+type gqlRepository struct {
+	PullRequest gqlPullRequest `json:"pullRequest"`
+}
+
+type gqlResponse struct {
+	Data struct {
+		Repository gqlRepository `json:"repository"`
+	} `json:"data"`
+}
+
+func GetUnresolvedReviewThreads(workDir, repo, branch string) (string, error) {
+	// 1. Get PR number for the current branch
+	prCmd := execCommand("gh", "pr", "list", "--head", branch, "--state", "open", "--json", "number", "--limit", "1")
+	prCmd.Dir = workDir
+	var prOut bytes.Buffer
+	prCmd.Stdout = &prOut
+	var prErr bytes.Buffer
+	prCmd.Stderr = &prErr
+	if err := prCmd.Run(); err != nil {
+		return "", fmt.Errorf("getting PR number failed: %s: %w", prErr.String(), err)
 	}
 
-	var prView PRView
-	if err := json.Unmarshal(out.Bytes(), &prView); err != nil {
-		return "", fmt.Errorf("parsing gh output: %w", err)
+	var prs []struct {
+		Number int `json:"number"`
+	}
+	if err := json.Unmarshal(prOut.Bytes(), &prs); err != nil {
+		return "", fmt.Errorf("parsing PR number: %w", err)
+	}
+	if len(prs) == 0 {
+		return "", nil // No open PR found for this branch
+	}
+	prNumber := prs[0].Number
+
+	// 2. Get repo owner and name
+	repoParts := strings.Split(repo, "/")
+	if len(repoParts) != 2 {
+		return "", fmt.Errorf("invalid repo format: %q", repo)
+	}
+	owner, repoName := repoParts[0], repoParts[1]
+
+	// 3. Prepare and run GraphQL query
+	query := `
+	query($owner: String!, $repo: String!, $pr: Int!) {
+	  repository(owner: $owner, name: $repo) {
+	    pullRequest(number: $pr) {
+	      reviewThreads(first: 100) {
+	        nodes {
+	          isResolved
+	          comments(first: 10) {
+	            nodes {
+	              author {
+	                login
+	              }
+	              body
+	              path
+	              line
+	            }
+	          }
+	        }
+	      }
+	    }
+	  }
+	}`
+
+	query = strings.ReplaceAll(query, "\n", " ")
+	query = strings.ReplaceAll(query, "\t", " ")
+
+	apiCmd := execCommand("gh", "api", "graphql",
+		"-f", fmt.Sprintf("query=%s", query),
+		"-f", fmt.Sprintf("owner=%s", owner),
+		"-f", fmt.Sprintf("repo=%s", repoName),
+		"-F", fmt.Sprintf("pr=%d", prNumber),
+	)
+	apiCmd.Dir = workDir
+	var apiOut bytes.Buffer
+	var apiErr bytes.Buffer
+	apiCmd.Stdout = &apiOut
+	apiCmd.Stderr = &apiErr
+	if err := apiCmd.Run(); err != nil {
+		return "", fmt.Errorf("gh api graphql failed: %s: %w", apiErr.String(), err)
+	}
+
+	var resp gqlResponse
+	if err := json.Unmarshal(apiOut.Bytes(), &resp); err != nil {
+		return "", fmt.Errorf("parsing graphql response: %w", err)
 	}
 
 	var formattedThreads strings.Builder
-	for _, thread := range prView.ReviewThreads {
+	for _, thread := range resp.Data.Repository.PullRequest.ReviewThreads.Nodes {
 		if !thread.IsResolved {
-			for _, comment := range thread.Comments {
+			for _, comment := range thread.Comments.Nodes {
 				var fileLine string
 				if comment.Line == 0 {
 					fileLine = comment.Path
