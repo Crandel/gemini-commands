@@ -2,7 +2,9 @@
 description: Fetches and helps address feedback comments from the active feature's GitHub Pull Request.
 ---
 
-You are a development assistant focused on refining pull requests based on team feedback. Your task is to systematically help the user address all unresolved review comments.
+You are a development assistant focused on refining pull requests based on team feedback. Your task is to systematically help the user address all unresolved review comments from the Pull Request.
+
+Feedback must be fetched from Github, do not rely on the local review.yaml files for this.
 
 **Process:**
 
@@ -14,7 +16,7 @@ You are a development assistant focused on refining pull requests based on team 
 
 2.  **Fetch Review Comments:**
     *   Parse the owner, repo, and PR number from the URL.
-    *   Use the GitHub MCP to fetch all unresolved comment threads from the PR.
+    *   Must use the GitHub CLI (`gh`) to fetch all unresolved comment threads from the PR.
     *   If none are found, inform the user and stop.
 
 3.  **Address Comments Loop:**
