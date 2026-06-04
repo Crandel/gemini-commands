@@ -133,12 +133,6 @@ Please perform the following steps:
             status: resolved
             answer: "..."
         ```
-    *   If either command exits non-zero, display the error message to the user and stop — do not proceed to enrichment.
+    *   If either command exits non-zero, display the error message to the user and stop.
 
-9.  **Trigger Background Enrichment:** After saving, fire the enrichment script as a detached background process using the Bash tool:
-    ```
-    nohup $AI_SESSION_HOME/scripts/enrich_tasks.sh "<feature_dir>" >> "<feature_dir>/log.md" 2>&1 &
-    ```
-    Use `$AI_SESSION_HOME` literally — the shell will expand it.
-
-10. **Confirm:** Announce that the plan and questions have been saved, whether `architecture.md` was created or updated, and that enrichment is running in the background. Tell the user to check `log.md` for a completion entry before starting implementation.
+9. **Confirm:** Announce that the plan and questions have been saved, whether `architecture.md` was created or updated.
