@@ -35,7 +35,7 @@ Example lifecycle:
         ↓
     review
         ↓
-    address-feedback
+    address-remote-feedback
         ↓
     pr
         ↓
@@ -154,10 +154,10 @@ Commands could be grouped by lifecycle stage:
 
 **Planning** - `/session:plan`
 
-**Execution** - `/session:start` - `/session:checkpoint` -
+**Execution** - `/session:load-context` - `/session:checkpoint` -
 `/session:log-research`
 
-**Review** - `/session:review` - `/session:address-feedback`
+**Review** - `/session:review` - `/session:address-remote-feedback`
 
 **Delivery** - `/session:pr`
 
@@ -209,7 +209,7 @@ A step-by-step example would help readers understand the workflow.
 Example:
 
     /session:new sc-12345
-    /session:start sc-12345
+    /session:load-context sc-12345
     /session:plan
     ... implement feature ...
     /session:checkpoint

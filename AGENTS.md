@@ -32,7 +32,7 @@ Feature directories contain:
 
 ## Commands
 
-- `/session:address-feedback` — Fetches and helps address feedback from the active PR.
+- `/session:address-remote-feedback` — Fetches and helps address feedback from the active PR.
 - `/session:checkpoint` — Saves a checkpoint by updating state files.
 - `/session:define` — Conversational session to define a new user story from scratch.
 - `/session:end` — Ends the session, saving progress and project-wide knowledge to AGENTS.md.
@@ -48,12 +48,12 @@ Feature directories contain:
 - `/session:review` — Critical code review of the current branch using a sub-agent.
 - `/session:review-devops` — DevOps-focused review of the current branch using a sub-agent.
 - `/session:review-docs` — Documentation review of the current branch using a sub-agent.
-- `/session:start` — Loads context from a feature directory to start or resume a session.
+- `/session:load-context` — Loads context from a feature directory to start or resume a session.
 - `/session:summary` — Generates a human-readable Markdown summary of the feature's state.
 - `/session:verify-release` — Verifies a cherry-picked release branch against original commits.
 
 Primary entry points: `/session:define` (new story from scratch), `/session:new`
-(from an existing ticket), `/session:start` (resume existing feature).
+(from an existing ticket), `/session:load-context` (resume existing feature).
 
 # Running Commands
 
@@ -61,7 +61,7 @@ Commands are invoked directly in the AI assistant's chat interface — not in th
 terminal. Both tools use the same `/session:` prefix.
 
 ```
-/session:start sc-12345
+/session:load-context sc-12345
 /session:plan
 ```
 
@@ -80,7 +80,7 @@ terminal. Both tools use the same `/session:` prefix.
   - `ai-session implement <story-id>` — Go orchestrator for the implementation phase. Accepts a `--strategy=task|slice` flag to control the implementation granularity. The dashboard UI can set this per-feature via the strategy dropdown. Resolves the feature dir, reads `AGENTS.md` for the verification command, runs an initial verification gate, iterates plan.yml slices (with dependency checks) and tasks based on the selected strategy, invokes `gemini --yolo` via stdin for each task, retries up to 5 times on verification failure, updates task/slice statuses atomically, and sets `pipeline_step: implement-done` on completion.
 - **Session Context Pattern:** To reduce token consumption, session commands use an
   explicit context-passing pattern:
-  - **Producers** (`/session:start`, `/session:define`, `/session:new`): Output a
+  - **Producers** (`/session:load-context`, `/session:define`, `/session:new`): Output a
     formatted block titled `### ✨ Session Context Loaded for...` containing the
     content of `description.md` and `AGENTS.md`.
   - **Consumers** (e.g., `/session:plan`, `/session:review`): Read the "Session

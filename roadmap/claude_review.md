@@ -29,7 +29,7 @@ history) correctly operationalizes it.
 
 ### 1. The session context block is a single point of failure
 
-Every command after `/session:start` depends on the LLM finding the
+Every command after `/session:load-context` depends on the LLM finding the
 `### ✨ Session Context Loaded for...` block in conversation history. In long sessions,
 this block gets pushed out of the active context window or lost to compression.
 

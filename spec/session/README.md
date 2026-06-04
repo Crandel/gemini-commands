@@ -19,8 +19,8 @@ This suite of commands orchestrates the flow of information between the user, th
 Commands follow a `/namespace:command` syntax and are typed directly in your AI
 assistant's chat interface — not in the terminal.
 
-- **Gemini CLI:** type `/session:start sc-1234` in the Gemini chat prompt
-- **Claude Code:** type `/session:start sc-1234` in the Claude Code chat prompt
+- **Gemini CLI:** type `/session:load-context sc-1234` in the Gemini chat prompt
+- **Claude Code:** type `/session:load-context sc-1234` in the Claude Code chat prompt
 
 Both tools use the same `/session:` prefix. Arguments are passed after the command name.
 
@@ -42,13 +42,13 @@ To begin a work session, there are three primary commands:
     /session:new https://notion_page_url.com
     ```
 
-*   **`/session:start`**: Use this to **resume work on an existing feature**. This command loads context from a previously created feature directory into your current session.
+*   **`/session:load-context`**: Use this to **resume work on an existing feature**. This command loads context from a previously created feature directory into your current session.
     ```bash
     # Open feature directory in default path .features/sc-1234
-    /session:start sc-1234
+    /session:load-context sc-1234
     
     # Open feature directory located in a custom path
-    /session:start .features/sc-1234
+    /session:load-context .features/sc-1234
     ```
 
 Once a session is started, you can proceed with other workflow commands.
@@ -70,13 +70,13 @@ Here is a typical workflow:
 5.  **Review and Deliver**:
     *   `/session:review`: The agent performs a code review of the local changes.
     *   `/session:pr`: The agent generates a pull request description and creates the PR on GitHub.
-    *   `/session:address-feedback`: After a PR is created, this command helps to fetch and address any unresolved review comments.
+    *   `/session:address-remote-feedback`: After a PR is created, this command helps to fetch and address any unresolved review comments.
 6.  **End the Session**:
     *   `/session:end`: The agent saves the final state and any project-wide learnings.
 
 This lifecycle helps capture and utilize context, from initial requirements to final delivery.
 
-**Note**: The lifecycle described above is an example path. The system is designed for flexibility. You can run `/session:end` at any point to store the current state and later resume your work with `/session:start`.
+**Note**: The lifecycle described above is an example path. The system is designed for flexibility. You can run `/session:end` at any point to store the current state and later resume your work with `/session:load-context`.
 
 ## Dependencies
 
@@ -129,7 +129,7 @@ This lifecycle helps capture and utilize context, from initial requirements to f
 
 ## Commands
 
-- **/session:address-feedback**: Fetches and helps address feedback comments from a GitHub Pull Request.
+- **/session:address-remote-feedback**: Fetches and helps address feedback comments from a GitHub Pull Request.
 - **/session:checkpoint**: Saves a checkpoint of the work done by updating state files.
 - **/session:define {USER STORY DESCRIPTION}**: Starts a conversational session to define a new user story and create its feature directory.
 - **/session:end**: Ends the work session, saving progress and project-wide knowledge to AGENTS.md.
@@ -143,7 +143,7 @@ This lifecycle helps capture and utilize context, from initial requirements to f
 - **/session:review**: Performs a code review of the current branch using a focused sub-agent.
 - **/session:review-devops**: Performs a devops review of the current branch using a focused sub-agent.
 - **/session:review-docs**: Performs a documentation review of the current branch using a focused sub-agent.
-- **/session:start {FEATURE DIRECTORY NAME}**: Starts a work session by loading context from a feature directory and the project's AGENTS.md file.
+- **/session:load-context {FEATURE DIRECTORY NAME}**: Starts a work session by loading context from a feature directory and the project's AGENTS.md file.
 - **/session:summary**: Generates a human-readable Markdown summary of the entire feature's state.
 - **/session:verify-release**: Verifies a cherry-picked release on the current branch, providing an analysis of any changes found.
 

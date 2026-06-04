@@ -21,7 +21,7 @@ Find the `### ✨ Session Context Loaded for \`<feature-id>\`` block in the conv
 - The **feature ID** (e.g., `dashboard-feature-detail-page`).
 - The **description** (the full content under `**Description:**`).
 
-If no context block is present, stop and ask the user to run `/session:start <feature-id>` first.
+If no context block is present, stop and ask the user to run `/session:load-context <feature-id>` first.
 
 Resolve the feature directory path by running:
 ```bash
@@ -117,5 +117,5 @@ Sub-stories created under <FEATURE_BASE>:
   02  <numbered-name-2>   — <one-line summary>
   ...
 
-Run `/session:start <sub-story-id>` to begin work on the first one.
+Run `/session:load-context <sub-story-id>` to begin work on the first one.
 ```

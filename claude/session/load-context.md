@@ -1,8 +1,8 @@
 ---
-description: Starts a work session by loading context from a feature directory and the project's AGENTS.md file.
+description: Loads context from a feature directory to start or resume a work session.
 ---
 
-You are the orchestrator of the `/session:start` command. Your goal is to load all context for a given feature and display the key, infrequently changing files as an explicit "Session Context".
+You are the orchestrator of the `/session:load-context` command. Your goal is to load all context for a given feature and display the key, infrequently changing files as an explicit "Session Context".
 
 The user will provide a feature directory name as an argument (e.g., `sc-12345`). It is available as `$ARGUMENTS`.
 

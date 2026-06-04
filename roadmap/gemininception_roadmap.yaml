@@ -1,4 +1,4 @@
-- command: "/session:address-feedback"
+- command: "/session:address-remote-feedback"
   priority: "Medium"
   status: "Missing"
   reason_for_subagent: "The sub-task of 'Document Rationale' (Step 5) could benefit from delegation to a sub-agent. This would align with Core Benefit 2 (Output Simplification & Encapsulation) and Use Case 3 (Content Generation from Specific Inputs). The main agent could focus on the interactive feedback loop, while the sub-agent handles the details of formatting the summary and appending it to log.md."
@@ -65,7 +65,7 @@
     **Proposed Change:**
     Modify the command so that the main agent performs Steps 1-3 (identifying directory, gathering context, performing codebase analysis). It then passes the gathered feature description, project conventions, and codebase analysis summary to a `generalist` sub-agent. The sub-agent would be responsible for Steps 4 and 5 (generating the `plan.yml` and `questions.yml` content) and returning them to the main agent, which would then perform Step 6 (saving the files).
 
-- command: "/session:start"
+- command: "/session:load-context"
   priority: "High"
   status: "Missing"
   reason_for_subagent: "The parsing and formatting of the output from the `load_context_files.sh` script (Steps 2 & 3) are mechanical tasks that can be delegated to a sub-agent. This aligns with Core Benefit 2 (Output Simplification & Encapsulation) and 1 (Input Sanitization), as the sub-agent can process the large, raw script output and return a clean, formatted session context block."

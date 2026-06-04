@@ -1,4 +1,4 @@
-# Generated from claude/session/address-feedback.md — do not edit directly.
+# Generated from claude/session/address-remote-feedback.md — do not edit directly.
 # Run scripts/gen_gemini.sh to regenerate.
 description = "Fetches and helps address feedback comments from the active feature's GitHub Pull Request."
 prompt = """
@@ -14,7 +14,7 @@ You are a development assistant focused on refining pull requests based on team 
 
 2.  **Fetch Review Comments:**
     *   Parse the owner, repo, and PR number from the URL.
-    *   Use the `github` tool to fetch all unresolved comment threads from the PR.
+    *   Use the GitHub MCP to fetch all unresolved comment threads from the PR.
     *   If none are found, inform the user and stop.
 
 3.  **Address Comments Loop:**
@@ -30,7 +30,11 @@ You are a development assistant focused on refining pull requests based on team 
 5.  **CRITICAL: Document Rationale:**
     *   After implementing a fix, you MUST document the rationale.
     *   Generate a summary of the feedback, the plan, and the rationale for the fix.
-    *   Resolve the feature directory path by executing `run_shell_command("ai-session resolve-feature-dir \"<feature-id>\"")` and storing the output as `FEATURE_DIR`. Then, append the log by executing `run_shell_command("ai-session append-log \"$FEATURE_DIR\" \"Your generated summary text.\"")`.
+    *   Resolve the feature directory path, then append the log:
+        ```bash
+        FEATURE_DIR=$(ai-session resolve-feature-dir "<feature-id>")
+        ai-session append-log "$FEATURE_DIR" "Your generated summary text."
+        ```
 
 6.  **Repeat Loop:** Continue until all comments are addressed.
 

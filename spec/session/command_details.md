@@ -2,7 +2,7 @@
 
 This section provides a breakdown of individual session commands, their dependencies, and their interactions with the file system and external tools.
 
-## `/session:address-feedback`
+## `/session:address-remote-feedback`
 
 -   **Description:** Fetches and helps address unresolved review comments from a feature's GitHub Pull Request.
 -   **Orchestration Pattern:** LLM Orchestrator with Helper Scripts
@@ -245,9 +245,9 @@ This section provides a breakdown of individual session commands, their dependen
 -   **Outputs:**
     -   Delegates writing `.features/<feature-dir>/docs-review.yml` to a sub-agent.
 
-## `/session:start {FEATURE DIRECTORY NAME}`
+## `/session:load-context {FEATURE DIRECTORY NAME}`
 
--   **Description:** Starts a work session by loading context from a feature directory and the project's `AGENTS.md` file.
+-   **Description:** Loads context from a feature directory to start or resume a work session.
 -   **Orchestration Pattern:** LLM Orchestrator with Helper Scripts
 -   **Dependencies:**
     -   **CLI:** `ai-session load-context` (replaces deprecated `scripts/load_context_files.sh`)

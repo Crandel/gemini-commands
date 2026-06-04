@@ -36,7 +36,7 @@ func init() {
 }
 
 var addressFeedbackCmd = &cobra.Command{
-	Use:   "address-feedback <story-id> [--regular] [--docs] [--devops]",
+	Use:   "address-feedback <story-id> [--regular] [--docs] [--devops] [--remote]",
 	Short: "Address review findings for a feature using an LLM",
 	Long: `Reads review findings from the feature directory and invokes gemini --yolo
 to address them. The review package is the single source of truth for finding

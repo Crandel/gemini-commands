@@ -38,7 +38,7 @@ This refactoring pattern has been successfully applied to several commands:
 -   **/session:new**: Uses `scripts/create_feature_dir.sh` to scaffold the feature directory from a Shortcut story ID. The LLM's only file-writing task is to synthesize and write `description.md`.
 -   **/session:checkpoint**, **/session:end**, and **/session:log-research**: These commands now use the `scripts/append_to_log.sh` script to add timestamped entries to the `log.md` file. This ensures consistent formatting and avoids race conditions or file corruption from a "Read-Append-Write" pattern being handled by the LLM.
 -   **/session:migration**: Was refactored to use `scripts/migrate_feature_file.sh`. This replaced a complex, brittle, multi-step prompt with a single, robust script that handles the entire file and directory migration atomically, significantly improving reliability.
--   **/session:start** & **/session:summary**: These commands were refactored to use `scripts/load_context_files.sh`. This replaced ~6 individual `read_file` tool calls with a single script execution, improving the performance and reducing the token overhead for starting a session or generating a summary.
+-   **/session:load-context** & **/session:summary**: These commands were refactored to use `scripts/load_context_files.sh`. This replaced ~6 individual `read_file` tool calls with a single script execution, improving the performance and reducing the token overhead for starting a session or generating a summary.
 
 ### High Priority
 
@@ -49,7 +49,7 @@ This refactoring pattern has been successfully applied to several commands:
 
 ### Medium Priority
 
--   **/session:address-feedback**:
+-   **/session:address-remote-feedback**:
     -   **Current Logic:** The prompt uses a "Read-Append-Write" pattern to log the rationale for a fix to `log.md`.
     -   **Proposed Script:** Reuse `scripts/append_to_log.sh`.
     -   **Implementation:** The LLM should generate the summary of the feedback and the rationale, then call the script to append it to the log, just as `/session:checkpoint` does.
