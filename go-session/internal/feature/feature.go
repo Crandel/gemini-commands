@@ -97,6 +97,9 @@ var ResolveFeatureDirImpl = func(storyID, cwd, remoteURL string) (string, error)
 // FeaturesDir returns the root directory where all feature directories are stored.
 // This is the single source of truth for the features base path.
 func FeaturesDir() (string, error) {
+	if envDir := os.Getenv("AI_SESSION_FEATURES_DIR"); envDir != "" {
+		return envDir, nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolving home directory: %w", err)

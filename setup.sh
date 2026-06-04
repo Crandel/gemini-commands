@@ -120,6 +120,10 @@ link_subdirs() {
         [ -d "$dir" ] || continue
         local dirname
         dirname="$(basename "$dir")"
+        # Skip gemini skills which are not standard commands
+        if [[ "$dirname" == "md-skill" || "$dirname" == "tdd-skill" || "$dirname" == "yq-skill" ]]; then
+            continue
+        fi
         create_symlink "$dir" "$target_dir/$dirname"
     done
 }
@@ -137,6 +141,8 @@ fi
 
 if [ "$HAS_GEMINI" = true ]; then
     echo "Gemini commands:"
+    # Clean up old obsolete skill symlinks
+    rm -f "$HOME/.gemini/commands/md-skill" "$HOME/.gemini/commands/tdd-skill" "$HOME/.gemini/commands/yq-skill"
     link_subdirs "$REPO_DIR/gemini" "$HOME/.gemini/commands"
 else
     echo "○ Gemini CLI not found — skipping"
@@ -149,6 +155,23 @@ if [ "$HAS_CLAUDE" = true ]; then
     link_subdirs "$REPO_DIR/claude" "$HOME/.claude/commands"
 else
     echo "○ Claude Code not found — skipping"
+fi
+
+# ── 2b. Setup Features Directory and Compile Go CLI ───────────────────────────
+echo ""
+echo "Setting up features directory..."
+FEATURES_DIR="${AI_SESSION_FEATURES_DIR:-$HOME/.features}"
+mkdir -p "$FEATURES_DIR"
+echo "  ✓ Features directory set up at $FEATURES_DIR"
+echo ""
+
+echo "Compiling ai-session Go CLI..."
+if command -v go &>/dev/null; then
+    (cd "$REPO_DIR/go-session" && make build)
+    echo "  ✓ Compiled ai-session Go CLI successfully!"
+else
+    echo "  ⚠ 'go' command not found. Skipping compilation of Go CLI."
+    echo "    Please install Go (v1.21+) and run 'cd go-session && make build' manually."
 fi
 
 # ── 3. Done ───────────────────────────────────────────────────────────────────

@@ -12,13 +12,14 @@ You are a senior software engineer executing an implementation plan. Your goal i
 1. **Get context** from the `### ✨ Session Context Loaded for...` block in the conversation history:
    - Extract the **feature ID** from the block title.
    - The **Description** and **Architecture** (if present) are your implementation context.
-   - From **Project Conventions** (`AGENTS.md`), find the `## Verification` section and extract the `Run:` command — this is your verification command for every task.
 
-2. **Resolve the feature directory:**
+2. **Resolve the feature directory and verification command:**
    ```bash
    FEATURE_DIR="$(ai-session resolve-feature-dir "<feature-id>")"
    echo "$FEATURE_DIR"
+   ai-session repository list
    ```
+   From the `status.yaml` block in the session context (or from the `ai-session load-context "<feature-id>"` output if not found in the history), extract the `repo:` value. Match it against the `ai-session repository list` output and chain the non-empty `verify.*` (e.g. verify.build, verify.lint) values with `&&` — this is your verification command for every task. If no matching repo entry exists, fall back to the `## Verification` section in `AGENTS.md`.
 
 3. **Initial verification gate.** Run the verification command via the `run_shell_command` tool. If it fails, stop immediately:
    ```bash
@@ -104,6 +105,7 @@ For each slice, in order:
    ai-session update-slice "$FEATURE_DIR" <slice-id> --status done
    ai-session append-log "$FEATURE_DIR" "Slice <slice-id>: complete."
    ```
+
 
 **Completion**
 

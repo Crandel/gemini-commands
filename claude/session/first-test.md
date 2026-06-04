@@ -79,7 +79,7 @@ Use Glob and Grep to identify:
 - The **entry point** the feature touches (handler, route, service)
 - The **external service boundaries** — classes, interfaces, or modules that make HTTP calls or DB queries (these are the only things to mock)
 - **Existing test files** for the same handler or module — read them to understand the mocking and factory patterns already in use
-- The **verification command** from `AGENTS.md` or `CLAUDE.md` in the project root — this is the command to run after writing tests
+- The **verification command** for this repo — run `ai-session repository list` and match on the `repo:` value from `status.yaml` (feature dir readable via `ai-session resolve-feature-dir "<feature-id>"`); chain non-empty `verify.build`, `verify.test`, `verify.lint` with `&&`. Fall back to `## Verification` in `AGENTS.md` if no entry exists.
 
 ### 3. Design the Test File
 
@@ -135,7 +135,7 @@ For Go:
 go build ./... 2>&1
 ```
 
-Then run the lint command from `AGENTS.md`. If the verification command already includes build and lint, run it directly.
+Then run the full verification command (resolved from `ai-session repository list` as described above).
 
 **If build or lint fails:**
 - Read the error output carefully

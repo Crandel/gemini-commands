@@ -70,32 +70,32 @@ For any item classified as a potential bug:
 
 1. **Identify the public entry point.** Do not test private/internal helpers directly. Find the exported function or handler that exercises the reported code path.
 
-2. **Use the `write_file` tool to write a focused test** that:
+2. **Write a focused test** that:
    - Calls only the public method
    - Sets up the minimum input to trigger the reported scenario
    - Asserts the incorrect behaviour the reviewer described
 
-3. **Run the test using the `run_shell_command` tool:**
+3. **Run the test** using the `run_shell_command` tool:
    ```bash
    <scoped-test-command> --testPathPattern="<file>" 2>&1 | tail -30
    ```
 
 4. **Interpret the result:**
    - **Test fails** → Bug reproduced. Fix it, re-run until the test passes, then mark item `resolved`.
-   - **Test passes** → Bug not reproduced. The reviewer's concern is likely addressed elsewhere. Mark `skipped` with a rationale referencing the safety net you identified.
+   - **Test passes** → Bug not reproduced. The reviewer's concern is likely addressed elsewhere. Mark item `skipped` with a rationale referencing the safety net you identified.
 
    > A passing test is evidence, not proof. If you believe the scenario genuinely isn't reachable through the public interface due to a higher-level guard, state that explicitly.
 
 ### 5. Implement Fixes
 
-For `resolved` items only — propose the minimal change, wait for user approval, then implement. After each fix:
+For `resolved` items only — propose the minimal change, wait for user approval, then implement using the `replace` or `write_file` tools. After each fix:
 
 1. Re-run the reproduction test to confirm it passes.
-2. Run the full verification command (from `AGENTS.md` / `GEMINI.md`) using the `run_shell_command` tool to confirm no regressions.
+2. Run the full verification command to confirm no regressions. Get it from `ai-session repository list` (using `run_shell_command`) matching the `repo:` value in `status.yaml` (chain non-empty `verify.build`, `verify.test`, `verify.lint` with `&&`). Fall back to the `## Verification` section in `GEMINI.md` if no repo entry exists.
 
 ### 6. Update Review Files
 
-After each item is triaged, update its status using the CLI via the `run_shell_command` tool:
+After each item is triaged, update its status using the `run_shell_command` tool with the following CLI commands:
 
 ```bash
 # Mark resolved (regular review)
@@ -118,5 +118,5 @@ Print a final table:
 
 ### 8. Checkpoint
 
-Run `/session:checkpoint` using the `run_shell_command` tool to save progress.
+Run `/session:checkpoint` to save progress.
 """

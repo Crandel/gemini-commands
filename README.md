@@ -15,20 +15,13 @@
 
 # ai-session
 
-A session-based development workflow for AI assistants. Instead of relying on fragile
-chat history, this system gives your AI structured files — a feature description,
-implementation plan, open questions, and a running log — that persist across sessions
-and make context explicit and reusable.
+An interactive and autonomous AI-powered software engineering system. Instead of relying on fragile chat history or basic prompts, `ai-session` provides a structured, state-driven workflow. It empowers AI assistants to autonomously implement codebases, run test suites, verify changes, address feedback, and create PRs using persistent state files (features, plans, open questions, logs) that remain consistent across tools and sessions.
 
-Compatible with **Gemini CLI**, **Claude Code**, or both simultaneously. Each tool gets
-its own set of commands (`gemini/` and `claude/`) that implement the same workflow
-concepts in that tool's native format.
+Compatible with **Gemini CLI**, **Claude Code**, or both simultaneously. Each tool gets its own set of commands (`gemini/` and `claude/`) that implement the same workflow concepts in that tool's native format, orchestrating deterministic file operations and automated loop-execution via a dedicated Go-based CLI.
 
 ## Prerequisites
 
-> **Platform note:** these instructions are written for macOS. `setup.sh` works on
-> Linux too, but the install commands below use Homebrew — substitute your distro's
-> package manager (`apt`, `dnf`, etc.) as needed.
+> **Platform note:** these instructions are written for macOS. `setup.sh` works on Linux too, but the install commands below use Homebrew — substitute your distro's package manager (`apt`, `dnf`, etc.) as needed.
 
 Before running setup, make sure you have:
 
@@ -39,27 +32,90 @@ Before running setup, make sure you have:
 - **[uv](https://docs.astral.sh/uv/)** — required for `uvx` (used by the Git MCP server)
 - **git**
 
+## Configuration & Environment Variables
+
+`ai-session` can be configured using the following environment variables. Ensure they are exported in your shell profiles (`~/.zshrc` and `~/.zshenv`) if you wish to override defaults:
+
+| Environment Variable | Description | Default |
+| --- | --- | --- |
+| `AI_SESSION_HOME` | The home directory where this repository is installed. Set automatically by `setup.sh`. | `$HOME/.ai-session` |
+| `AI_SESSION_FEATURES_DIR` | The central directory where all your feature folders, execution plans, logs, and registered repository configurations are saved. | `$HOME/.features` |
+
+To use a custom directory for your features, set `AI_SESSION_FEATURES_DIR` before running `setup.sh`:
+```bash
+export AI_SESSION_FEATURES_DIR="$HOME/my-custom-features-path"
+```
+
 ## Setup
 
+1. **Clone the repository:**
 ```bash
 git clone git@github.com:daniel-talonone/gemini-commands.git ~/.ai-session
+```
+
+2. **Run the setup script:**
+```bash
 chmod +x ~/.ai-session/setup.sh
 ~/.ai-session/setup.sh
-source ~/.zshrc
 ```
 
-**Gemini CLI users:** also install the required skills after setup:
+The idempotent `setup.sh` script does the following automatically:
+- Registers `AI_SESSION_HOME` in both `~/.zshrc` and `~/.zshenv` (supporting both interactive and headless CLI sessions).
+- Adds necessary tool directories (`scripts/` and Go binary `go-session/bin/`) to your shell `PATH`.
+- Symlinks each subcommand group in `gemini/` and `claude/` to their respective tool's active commands directory.
+- Creates the centralized features directory (`AI_SESSION_FEATURES_DIR` or the default `$HOME/.features`).
+- Automatically compiles the Go CLI (`go-session/bin/ai-session`) so it's ready to use instantly.
+
+3. **Reload your shell profile:**
 ```bash
-gemini skills install ~/.ai-session/gemini/tdd-skill
+source ~/.zshenv && source ~/.zshrc
 ```
 
-`setup.sh` does two things:
-1. Adds `export AI_SESSION_HOME="$HOME/.ai-session"` to your `.zshrc`
-2. Creates symlinks from each tool's commands directory into this repo
+> **Not using zsh?** Manually add `export AI_SESSION_HOME="$HOME/.ai-session"` and add `$AI_SESSION_HOME/go-session/bin` & `$AI_SESSION_HOME/scripts` to your shell's config file (`.bashrc`, `.bash_profile`, `config.fish`, etc.).
 
-> **Not using zsh?** Manually add `export AI_SESSION_HOME="$HOME/.ai-session"` to
-> your shell's config file (`.bashrc`, `.bash_profile`, `config.fish`, etc.) before
-> running any commands.
+## Getting Started
+
+Get up and running with `ai-session` in three quick steps:
+
+### 1. Register Your Repository
+
+For `ai-session` to run background verifications (build, test, lint), compile code, and load workspace context, you must register each target project repository with the central config registry. Add the repository definition:
+
+```bash
+ai-session repository add --config-json '{
+  "repo_name": "my-org/my-project",
+  "work_dir": "/Users/username/src/my-project",
+  "is_worktree": false,
+  "agents_path": "/Users/username/src/my-project/AGENTS.md",
+  "verify_config": {
+    "build": "yarn build",
+    "test": "yarn test:unit",
+    "lint": "yarn lint --fix"
+  }
+}'
+```
+
+To list all configured repositories:
+```bash
+ai-session repository list
+```
+
+### 2. Launch the Web Dashboard
+
+Run the built-in HTTP server to start the real-time visual web dashboard:
+
+```bash
+ai-session serve
+```
+Open `http://localhost:1004` to monitor active feature development, view structured execution plans, append logs, and switch between multiple types of AI-driven code reviews (Regular, Docs, DevOps).
+
+### 3. Initiate a Feature Session
+
+Inside your registered repository's directory, boot your AI assistant (Gemini CLI or Claude Code) and run:
+```
+/session:new sc-12345
+```
+This automatically scaffolds a dedicated directory in your features folder (`~/.features/my-org/my-project/sc-12345/`), initializes execution state files (`plan.yml`, `status.yaml`), and loads the context block to begin planning, implementation, and review.
 
 ## Structure
 

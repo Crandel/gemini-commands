@@ -26,7 +26,7 @@ Please perform the following steps:
 
 4.  **Analyze Codebase:** Perform a high-level analysis using the Glob and Grep tools to understand relevant files and functions.
     *   Look for analogous implementations (sibling routes, similar handlers) to use as reference patterns.
-    *   Read `AGENTS.md` (or `CLAUDE.md`) in the project root to understand the verification commands for this repo — these will apply to all tasks.
+    *   Run `ai-session repository list` and match on the `repo:` value from `status.yaml` to find the verification commands (`verify.build`, `verify.test`, `verify.lint`) — these will apply to all tasks. Fall back to the `## Verification` section in `AGENTS.md` if no repo entry exists.
 
 5.  **Architecture Discussion (Optional):**
     *   Ask the user: *"Does this change warrant an architecture discussion before planning? (e.g. non-trivial design decisions, multiple implementation paths, risk of getting locked into a bad approach)"*

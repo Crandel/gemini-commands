@@ -94,7 +94,7 @@ For any item classified as a potential bug:
 For `resolved` items only — propose the minimal change, wait for user approval, then implement. After each fix:
 
 1. Re-run the reproduction test to confirm it passes.
-2. Run the full verification command (from `AGENTS.md` / `CLAUDE.md`) to confirm no regressions.
+2. Run the full verification command to confirm no regressions. Get it from `ai-session repository list` matching the `repo:` value in `status.yaml` (chain non-empty `verify.build`, `verify.test`, `verify.lint` with `&&`). Fall back to the `## Verification` section in `AGENTS.md` if no repo entry exists.
 
 ### 6. Update Review Files
 
