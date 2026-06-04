@@ -31,15 +31,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// descriptionCreateCmd represents the create command
-var descriptionCreateCmd = &cobra.Command{
-	Use:   "create <story-id> [<content>]",
-	Short: "Create a description.md file for a feature",
-	Long: `Create a description.md file for a feature.
+// descriptionUpsertCmd represents the upsert command
+var descriptionUpsertCmd = &cobra.Command{
+	Use:   "upsert <story-id> [<content>]",
+	Short: "Create or update a description.md file for a feature",
+	Long: `Create or update a description.md file for a feature.
 
 The content can be provided as an argument or piped from stdin.
 It is an error to provide both at the same time.
-The command will fail if the description.md file already exists.`,
+If the description.md file already exists, it will be overwritten.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		storyID := args[0]
@@ -87,7 +87,7 @@ The command will fail if the description.md file already exists.`,
 			return fmt.Errorf("feature directory not found: %s; use resolve-feature-dir to debug", featureDir)
 		}
 
-		if err := description.CreateDescription(featureDir, content); err != nil {
+		if err := description.UpsertDescription(featureDir, content); err != nil {
 			return err
 		}
 
@@ -97,5 +97,5 @@ The command will fail if the description.md file already exists.`,
 }
 
 func init() {
-	descriptionCmd.AddCommand(descriptionCreateCmd)
+	descriptionCmd.AddCommand(descriptionUpsertCmd)
 }

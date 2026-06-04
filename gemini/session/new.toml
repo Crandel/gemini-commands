@@ -28,13 +28,13 @@ You are an assistant who bootstraps feature development by delegating context ga
     *   **Supplementary context:** `<any extra text the user provided after the identifier>`
     *   **Feature name:** `<derived feature name, e.g. sc-69838>`
 
-    > **Important:** The feature directory has already been created. Do NOT run `mkdir` or any directory-creation commands. Use the `run_shell_command` tool with `ai-session description create` to save the file.
+    > **Important:** The feature directory has already been created. Do NOT run `mkdir` or any directory-creation commands. Use the `run_shell_command` tool with `ai-session description upsert` to save the file.
 
     **Task:**
 
     1.  **Fetch Primary Content:**
-        *   If the identifier is a Shortcut story ID (e.g., "sc-12345"), use the `shortcut` tool to fetch the story.
-        *   If the identifier is a Notion URL, use the `notion` tool to fetch the page.
+        *   If the identifier is a Shortcut story ID (e.g., "sc-12345"), use the Shortcut MCP to fetch the story.
+        *   If the identifier is a Notion URL, use the Notion MCP to fetch the page.
 
     2.  **Extract Key Information & Find Linked Resources:**
         *   Extract the title, description, comments, and canonical URL.
@@ -42,10 +42,10 @@ You are an assistant who bootstraps feature development by delegating context ga
 
     3.  **Fetch Linked Resources:**
         *   For each linked URL:
-            *   If it's a Shortcut link, use the `shortcut` tool.
-            *   If it's a Notion link, use the `notion` tool.
-            *   If it's a GitHub link to a file, use the `github` tool to fetch file contents.
-            *   If it's any other HTTP link, use the `google_web_search` tool.
+            *   If it's a Shortcut link, use the Shortcut MCP.
+            *   If it's a Notion link, use the Notion MCP.
+            *   If it's a GitHub link to a file, use the GitHub CLI to fetch file contents.
+            *   If it's any other HTTP link, use the WebFetch tool.
         *   Limit recursion to 1 level deep.
 
     4.  **Synthesize the Final Description:**
@@ -58,7 +58,7 @@ You are an assistant who bootstraps feature development by delegating context ga
     5.  **Save the Output:**
         *   Use the `run_shell_command` tool to save the synthesized Markdown via:
             ```bash
-            ai-session description create "<feature_name>" <<'EOF'
+            ai-session description upsert "<feature_name>" <<'EOF'
             <synthesized content>
             EOF
             ```
@@ -74,19 +74,19 @@ You are an assistant who bootstraps feature development by delegating context ga
         WORK_DIR=$(pwd)
         NOW=$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")
         yq e -i "
-          .repo = \"$REPO\" |
-          .branch = \"$BRANCH\" |
-          .work_dir = \"$WORK_DIR\" |
-          .clone_path = \"$WORK_DIR\" |
-          .story_url = \"<primary_identifier>\" |
-          .updated_at = \"$NOW\"
+          .repo = \\"$REPO\\" |
+          .branch = \\"$BRANCH\\" |
+          .work_dir = \\"$WORK_DIR\\" |
+          .clone_path = \\"$WORK_DIR\\" |
+          .story_url = \\"<primary_identifier>\\" |
+          .updated_at = \\"$NOW\\"
         " "$FEATURE_DIR/status.yaml"
         ```
         Replace `<primary_identifier>` with the actual identifier (Shortcut URL or Notion URL).
 
 5.  **Establish Session Context (Final Step):**
-    *   Use the `run_shell_command` tool to run `ai-session load-context "{{feature_name}}"` and extract the `description.md` block.
-    *   Use the `read_file` tool to read the content of `AGENTS.md` from the project root (fall back to `GEMINI.md` if not present).
+    *   Run `ai-session load-context "{{feature_name}}"` and extract the `description.md` block.
+    *   Read the content of `AGENTS.md` from the project root (fall back to `GEMINI.md` if not present).
     *   Format and display using the following Markdown structure EXACTLY:
 
         ```markdown

@@ -47,7 +47,7 @@ The user has provided a high-level goal: `$ARGUMENTS`.
             Always use the bare `ai-session` command — never construct an absolute path.
         3.  Use the Bash tool to save `description.md` with the approved draft content:
             ```bash
-            ai-session description create "create-user-profile-page" <<'EOF'
+            ai-session description upsert "create-user-profile-page" <<'EOF'
             <approved draft content>
             EOF
             ```

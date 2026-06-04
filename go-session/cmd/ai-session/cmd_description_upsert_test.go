@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDescriptionCreateCmd(t *testing.T) {
+func TestDescriptionUpsertCmd(t *testing.T) {
 	// Setup a temporary feature directory
 	dir := t.TempDir()
 	featureDir := filepath.Join(dir, ".features", "test-org", "test-repo", "sc-123")
@@ -33,7 +33,7 @@ func TestDescriptionCreateCmd(t *testing.T) {
 		rootCmd.SetErr(&out)
 
 		content := "description from arg"
-		rootCmd.SetArgs([]string{"description", "create", "sc-123", content})
+		rootCmd.SetArgs([]string{"description", "upsert", "sc-123", content})
 
 		err := rootCmd.Execute()
 		require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestDescriptionCreateCmd(t *testing.T) {
 		os.Stdin = r
 		defer func() { os.Stdin = origStdin }()
 
-		rootCmd.SetArgs([]string{"description", "create", "sc-123"})
+		rootCmd.SetArgs([]string{"description", "upsert", "sc-123"})
 
 		err := rootCmd.Execute()
 		require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestDescriptionCreateCmd(t *testing.T) {
 		os.Stdin = r
 		defer func() { os.Stdin = origStdin }()
 
-		rootCmd.SetArgs([]string{"description", "create", "sc-123", "arg content"})
+		rootCmd.SetArgs([]string{"description", "upsert", "sc-123", "arg content"})
 
 		err := rootCmd.Execute()
 		require.Error(t, err)
@@ -112,25 +112,32 @@ func TestDescriptionCreateCmd(t *testing.T) {
 		os.Stdin = f
 		defer func() { os.Stdin = origStdin }()
 
-		rootCmd.SetArgs([]string{"description", "create", "sc-123"})
+		rootCmd.SetArgs([]string{"description", "upsert", "sc-123"})
 
 		err = rootCmd.Execute()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "neither stdin nor positional argument provided")
 	})
 
-	t.Run("Failure if file exists", func(t *testing.T) {
+	t.Run("Success on overwrite", func(t *testing.T) {
 		// Ensure file exists
-		require.NoError(t, os.WriteFile(filepath.Join(featureDir, "description.md"), []byte("existing"), 0644))
+		initialContent := "existing content"
+		require.NoError(t, os.WriteFile(filepath.Join(featureDir, "description.md"), []byte(initialContent), 0644))
 
 		var out bytes.Buffer
 		rootCmd.SetOut(&out)
 		rootCmd.SetErr(&out)
 
-		rootCmd.SetArgs([]string{"description", "create", "sc-123", "new content"})
+		newContent := "new content"
+		rootCmd.SetArgs([]string{"description", "upsert", "sc-123", newContent})
 		err := rootCmd.Execute()
 
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "already exists")
+		require.NoError(t, err)
+		assert.Contains(t, out.String(), "description.md written successfully.")
+
+		// Verify file content is overwritten
+		fileContent, err := os.ReadFile(filepath.Join(featureDir, "description.md"))
+		require.NoError(t, err)
+		assert.Equal(t, newContent, string(fileContent))
 	})
 }

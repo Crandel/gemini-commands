@@ -28,7 +28,7 @@ You are an assistant who bootstraps feature development by delegating context ga
     *   **Supplementary context:** `<any extra text the user provided after the identifier>`
     *   **Feature name:** `<derived feature name, e.g. sc-69838>`
 
-    > **Important:** The feature directory has already been created. Do NOT run `mkdir` or any directory-creation commands. Use the Bash tool with `ai-session description create` to save the file.
+    > **Important:** The feature directory has already been created. Do NOT run `mkdir` or any directory-creation commands. Use the Bash tool with `ai-session description upsert` to save the file.
 
     **Task:**
 
@@ -58,7 +58,7 @@ You are an assistant who bootstraps feature development by delegating context ga
     5.  **Save the Output:**
         *   Use the Bash tool to save the synthesized Markdown via:
             ```bash
-            ai-session description create "<feature_name>" <<'EOF'
+            ai-session description upsert "<feature_name>" <<'EOF'
             <synthesized content>
             EOF
             ```

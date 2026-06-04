@@ -33,18 +33,15 @@ func RenderMarkdown(markdown string) template.HTML {
 	return template.HTML(buf.String())
 }
 
-// CreateDescription saves the description content to description.md in an atomic
-// way. It validates that the content is not empty and that the file does not
-// already exist.
-func CreateDescription(featureDir, content string) error {
+// UpsertDescription saves the description content to description.md in an atomic
+// way. It validates that the content is not empty. If the file already
+// exists, it will be overwritten.
+func UpsertDescription(featureDir, content string) error {
 	if strings.TrimSpace(content) == "" {
 		return fmt.Errorf("content is empty; provide non-empty content via stdin or positional argument")
 	}
 
 	p := filepath.Join(featureDir, "description.md")
-	if _, err := os.Stat(p); !os.IsNotExist(err) {
-		return fmt.Errorf("description.md already exists in %s; delete it first if you want to overwrite", featureDir)
-	}
 
 	tempFile, err := os.CreateTemp(featureDir, "description.md.*")
 	if err != nil {

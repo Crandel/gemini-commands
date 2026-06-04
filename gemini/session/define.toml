@@ -23,7 +23,7 @@ The user has provided a high-level goal: `{{args}}`.
     *   Prompt them for edge cases, constraints, and success metrics.
 
 3.  **Perform Codebase Analysis (In Parallel):**
-    *   As you converse, use `glob` and `grep_search` to silently explore the codebase.
+    *   As you converse, use the `glob` and `grep_search` tools to silently explore the codebase.
     *   Identify files, functions, and code sections relevant to the feature being discussed. This will be crucial for the technical notes.
 
 4.  **Synthesize and Propose a Draft:**
@@ -47,7 +47,7 @@ The user has provided a high-level goal: `{{args}}`.
             Always use the bare `ai-session` command — never construct an absolute path.
         3.  Use the `run_shell_command` tool to save `description.md` with the approved draft content:
             ```bash
-            ai-session description create "create-user-profile-page" <<'EOF'
+            ai-session description upsert "create-user-profile-page" <<'EOF'
             <approved draft content>
             EOF
             ```
