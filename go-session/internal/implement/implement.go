@@ -784,10 +784,15 @@ func runShell(shellCmd, dir string) error {
 // ResolveAgentsPath returns the path to AGENTS.md to use for the given workDir
 // and optional repoConfig. It prefers repoConfig.AgentsPath if present and the
 // file exists; otherwise falls back to workDir/AGENTS.md.
+// If AgentsPath is relative, it is resolved relative to workDir.
 func ResolveAgentsPath(workDir string, repoConfig *repository.RepositoryConfig) string {
 	if repoConfig != nil && repoConfig.AgentsPath != "" {
-		if _, err := os.Stat(repoConfig.AgentsPath); err == nil {
-			return repoConfig.AgentsPath
+		p := repoConfig.AgentsPath
+		if !filepath.IsAbs(p) {
+			p = filepath.Join(workDir, p)
+		}
+		if _, err := os.Stat(p); err == nil {
+			return p
 		}
 	}
 	return filepath.Join(workDir, "AGENTS.md")

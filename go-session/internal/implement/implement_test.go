@@ -366,6 +366,26 @@ func TestResolveAgentsPath(t *testing.T) {
 		assert.Equal(t, filepath.Join(workDir, "AGENTS.md"), implement.ResolveAgentsPath(workDir, nil))
 	})
 
+	t.Run("repo config agents_path is relative - resolved relative to workDir", func(t *testing.T) {
+		workDir := t.TempDir()
+		workDirAgentsPath := filepath.Join(workDir, "AGENTS.md")
+		require.NoError(t, os.WriteFile(workDirAgentsPath, []byte("workdir agents"), 0644))
+
+		repoConfig := &repository.RepositoryConfig{RepoName: "org/test-repo", AgentsPath: "AGENTS.md"}
+		assert.Equal(t, workDirAgentsPath, implement.ResolveAgentsPath(workDir, repoConfig))
+	})
+
+	t.Run("repo config agents_path is relative subpath - resolved relative to workDir", func(t *testing.T) {
+		workDir := t.TempDir()
+		subDir := filepath.Join(workDir, "docs")
+		require.NoError(t, os.MkdirAll(subDir, 0755))
+		agentsFile := filepath.Join(subDir, "AGENTS.md")
+		require.NoError(t, os.WriteFile(agentsFile, []byte("docs agents"), 0644))
+
+		repoConfig := &repository.RepositoryConfig{RepoName: "org/test-repo", AgentsPath: "docs/AGENTS.md"}
+		assert.Equal(t, agentsFile, implement.ResolveAgentsPath(workDir, repoConfig))
+	})
+
 	t.Run("repo config agents_path and workDir AGENTS.md both exist - prefer repo config", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		repoAgentsPath := filepath.Join(tmpDir, "repo-agents.md")
